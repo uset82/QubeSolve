@@ -17,3 +17,7 @@
  GET /icons/144 200 in 109ms (next.js: 21ms, application-code: 88ms)
  GET /scan 200 in 177ms (next.js: 63ms, application-code: 113ms)
  GET /scan 200 in 152ms (next.js: 51ms, application-code: 101ms)
+ GET / 200 in 185ms (next.js: 34ms, application-code: 151ms)
+ GET / 200 in 193ms (next.js: 13ms, application-code: 181ms)
+ GET /manifest.webmanifest 200 in 31ms (next.js: 6ms, application-code: 25ms)
+ GET /icons/144 200 in 62ms (next.js: 10ms, application-code: 52ms)

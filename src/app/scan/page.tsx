@@ -308,6 +308,9 @@ export default function ScanPage() {
           ? `${FACE_NAMES[targetFace]} updated.`
           : `${FACE_NAMES[targetFace]} saved.`
     );
+    setLockedPreviewColors(null);
+    setSelectedStickerIndex(null);
+    setManualStickerOverrides(createManualStickerOverrides());
 
     autoCaptureRef.current.lockoutUntil = performance.now() + AUTO_CAPTURE_LOCKOUT_MS;
     autoCaptureRef.current.candidateKey = null;
@@ -630,7 +633,7 @@ export default function ScanPage() {
               onClick={handleConfirmFace}
               disabled={!canConfirm}
             >
-              Confirm {FACE_NAMES[detectedFace ?? currentFace]}
+              Confirm Face Colors
             </Button>
             <Button
               variant="secondary"
