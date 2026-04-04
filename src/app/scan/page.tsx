@@ -43,6 +43,7 @@ import "@/styles/scan.css";
 const AUTO_CAPTURE_HOLD_MS = 900;
 const AUTO_CAPTURE_LOCKOUT_MS = 1200;
 const AUTO_CAPTURE_MIN_CONFIDENCE = 0.78;
+const DETECTION_LOCK_HOLD_MS = 280;
 const STICKERS_PER_FACE = 9;
 
 function createManualStickerOverrides(): Array<CubeColor | null> {
@@ -121,6 +122,10 @@ export default function ScanPage() {
     stableSince: 0,
     lockoutUntil: 0,
   });
+  const detectionLockRef = useRef({
+    candidateKey: null as string | null,
+    stableSince: 0,
+  });
   const [manualFaceIndex, setManualFaceIndex] = useState<number | null>(null);
   const scanSession = useSyncExternalStore(
     subscribeToScanSession,
@@ -136,6 +141,9 @@ export default function ScanPage() {
   const [visionAssistPending, setVisionAssistPending] = useState(false);
   const [autoCaptureProgress, setAutoCaptureProgress] = useState(0);
   const [autoCaptureMessage, setAutoCaptureMessage] = useState<string | null>(null);
+  const [lockedPreviewColors, setLockedPreviewColors] = useState<
+    Array<CubeColor | null> | null
+  >(null);
   const [selectedStickerIndex, setSelectedStickerIndex] = useState<number | null>(
     null
   );
@@ -160,9 +168,14 @@ export default function ScanPage() {
         : liveDetections,
     [liveDetections, visionAssist]
   );
-  const basePreviewColors = useMemo(
+  const livePreviewColors = useMemo(
     () => getPreviewColors(effectiveDetections),
     [effectiveDetections]
+  );
+  const isPreviewLocked = lockedPreviewColors !== null;
+  const basePreviewColors = useMemo(
+    () => lockedPreviewColors ?? livePreviewColors,
+    [livePreviewColors, lockedPreviewColors]
   );
   const editedPreviewColors = useMemo(
     () => applyManualStickerOverrides(basePreviewColors, manualStickerOverrides),
@@ -206,12 +219,17 @@ export default function ScanPage() {
     setVisionAssistError(null);
     setAutoCaptureProgress(0);
     setAutoCaptureMessage(null);
+    setLockedPreviewColors(null);
     setSelectedStickerIndex(null);
     setManualStickerOverrides(createManualStickerOverrides());
     autoCaptureRef.current = {
       candidateKey: null,
       stableSince: 0,
       lockoutUntil: 0,
+    };
+    detectionLockRef.current = {
+      candidateKey: null,
+      stableSince: 0,
     };
   }, [currentFace]);
 
@@ -232,6 +250,10 @@ export default function ScanPage() {
       return `This looks like the ${detectedColors[4]}-center face. Rotate the cube until the ${expectedCenterColor} center is inside the grid.`;
     }
 
+    if (isPreviewLocked && !hasManualStickerOverrides) {
+      return "Colors locked. Confirm this face or tap a sticker to adjust it.";
+    }
+
     if (hasManualStickerOverrides) {
       return "Manual correction active. Confirm when the 9 stickers match the cube face.";
     }
@@ -242,6 +264,7 @@ export default function ScanPage() {
     expectedCenterColor,
     hasManualStickerOverrides,
     hasExpectedCenter,
+    isPreviewLocked,
     visionAssist,
   ]);
 
@@ -300,7 +323,12 @@ export default function ScanPage() {
   };
 
   useEffect(() => {
-    if (visionAssist || visionAssistPending || hasManualStickerOverrides) {
+    if (
+      visionAssist ||
+      visionAssistPending ||
+      hasManualStickerOverrides ||
+      isPreviewLocked
+    ) {
       setAutoCaptureProgress(0);
       return;
     }
@@ -345,9 +373,56 @@ export default function ScanPage() {
     commitFace,
     currentFace,
     hasManualStickerOverrides,
+    isPreviewLocked,
     localDetectedColors,
     localHasExpectedCenter,
     liveAverageConfidence,
+    visionAssist,
+    visionAssistPending,
+  ]);
+
+  useEffect(() => {
+    if (visionAssist) {
+      detectionLockRef.current = {
+        candidateKey: null,
+        stableSince: 0,
+      };
+      setLockedPreviewColors([...visionAssist.colors]);
+      return;
+    }
+
+    if (visionAssistPending || isPreviewLocked || hasManualStickerOverrides) {
+      return;
+    }
+
+    if (!localDetectedColors || !localHasExpectedCenter) {
+      detectionLockRef.current = {
+        candidateKey: null,
+        stableSince: 0,
+      };
+      return;
+    }
+
+    const now = performance.now();
+    const candidateKey = getDetectionKey(currentFace, localDetectedColors);
+
+    if (detectionLockRef.current.candidateKey !== candidateKey) {
+      detectionLockRef.current = {
+        candidateKey,
+        stableSince: now,
+      };
+      return;
+    }
+
+    if (now - detectionLockRef.current.stableSince >= DETECTION_LOCK_HOLD_MS) {
+      setLockedPreviewColors([...localDetectedColors]);
+    }
+  }, [
+    currentFace,
+    hasManualStickerOverrides,
+    isPreviewLocked,
+    localDetectedColors,
+    localHasExpectedCenter,
     visionAssist,
     visionAssistPending,
   ]);
@@ -377,6 +452,10 @@ export default function ScanPage() {
   };
 
   const handlePreviewCellClick = (index: number) => {
+    if (!isPreviewLocked) {
+      setLockedPreviewColors([...livePreviewColors]);
+    }
+
     setSelectedStickerIndex((current) => (current === index ? null : index));
   };
 
@@ -395,6 +474,19 @@ export default function ScanPage() {
   const handlePreviewReset = () => {
     setManualStickerOverrides(createManualStickerOverrides());
     setSelectedStickerIndex(null);
+  };
+
+  const handleUnlockPreview = () => {
+    setLockedPreviewColors(null);
+    setManualStickerOverrides(createManualStickerOverrides());
+    setSelectedStickerIndex(null);
+    setVisionAssist(null);
+    setVisionAssistError(null);
+    setAutoCaptureProgress(0);
+    detectionLockRef.current = {
+      candidateKey: null,
+      stableSince: 0,
+    };
   };
 
   return (
@@ -543,14 +635,16 @@ export default function ScanPage() {
                 onClick={() => {
                   setVisionAssist(null);
                   setVisionAssistError(null);
+                  setLockedPreviewColors(null);
+                  setSelectedStickerIndex(null);
                 }}
               >
                 Clear AI result
               </Button>
             )}
-            {hasManualStickerOverrides && (
-              <Button variant="ghost" onClick={handlePreviewReset}>
-                Clear sticker edits
+            {isPreviewLocked && (
+              <Button variant="ghost" onClick={handleUnlockPreview}>
+                Resume live scan
               </Button>
             )}
             <Button
