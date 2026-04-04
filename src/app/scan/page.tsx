@@ -19,6 +19,7 @@ import PageTransition from "@/components/ui/PageTransition";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { type ColorDetectionResult } from "@/lib/colorDetection";
 import {
+  CENTER_COLOR_TO_FACE,
   COLOR_CSS_MAP,
   type CubeColor,
   FACE_CENTER_COLORS,
@@ -185,11 +186,14 @@ export default function ScanPage() {
     () => getCompletedColors(editedPreviewColors),
     [editedPreviewColors]
   );
+  const detectedFace = detectedColors
+    ? CENTER_COLOR_TO_FACE[detectedColors[4]]
+    : null;
   const localHasExpectedCenter =
     localDetectedColors !== null && localDetectedColors[4] === expectedCenterColor;
   const hasExpectedCenter =
     detectedColors !== null && detectedColors[4] === expectedCenterColor;
-  const canConfirm = detectedColors !== null && hasExpectedCenter;
+  const canConfirm = detectedColors !== null;
   const hasManualStickerOverrides = manualStickerOverrides.some(
     (color) => color !== null
   );
@@ -247,7 +251,7 @@ export default function ScanPage() {
     }
 
     if (!hasExpectedCenter) {
-      return `This looks like the ${detectedColors[4]}-center face. Rotate the cube until the ${expectedCenterColor} center is inside the grid.`;
+      return `This scan looks like ${FACE_NAMES[detectedFace!]}. Confirm will save it there, or rotate to ${FACE_NAMES[currentFace]} if that is the face you want.`;
     }
 
     if (isPreviewLocked && !hasManualStickerOverrides) {
@@ -261,11 +265,13 @@ export default function ScanPage() {
     return null;
   }, [
     detectedColors,
+    detectedFace,
     expectedCenterColor,
     hasManualStickerOverrides,
     hasExpectedCenter,
     isPreviewLocked,
     visionAssist,
+    currentFace,
   ]);
 
   const statusClassName = visionAssist
@@ -280,11 +286,15 @@ export default function ScanPage() {
         ? "scan-page__status scan-page__status--soft"
         : "scan-page__status scan-page__status--ready";
 
-  const commitFace = useCallback((colors: CubeColor[], source: "auto" | "manual" | "vision") => {
-    const isReplacement = Boolean(scannedFaces[currentFace]);
+  const commitFace = useCallback((
+    targetFace: Face,
+    colors: CubeColor[],
+    source: "auto" | "manual" | "vision"
+  ) => {
+    const isReplacement = Boolean(scannedFaces[targetFace]);
     const nextScannedFaces = {
       ...scannedFaces,
-      [currentFace]: colors,
+      [targetFace]: colors,
     };
 
     saveScanSession(nextScannedFaces);
@@ -293,10 +303,10 @@ export default function ScanPage() {
     setAutoCaptureProgress(0);
     setAutoCaptureMessage(
       source === "auto"
-        ? `${FACE_NAMES[currentFace]} captured automatically. Rotate to the next face.`
+        ? `${FACE_NAMES[targetFace]} captured automatically. Rotate to the next face.`
         : isReplacement
-          ? `${FACE_NAMES[currentFace]} updated.`
-          : `${FACE_NAMES[currentFace]} saved.`
+          ? `${FACE_NAMES[targetFace]} updated.`
+          : `${FACE_NAMES[targetFace]} saved.`
     );
 
     autoCaptureRef.current.lockoutUntil = performance.now() + AUTO_CAPTURE_LOCKOUT_MS;
@@ -312,14 +322,14 @@ export default function ScanPage() {
     }
 
     setManualFaceIndex(nextIndex);
-  }, [currentFace, router, scannedFaces]);
+  }, [router, scannedFaces]);
 
   const handleConfirmFace = () => {
-    if (!canConfirm || !detectedColors) {
+    if (!canConfirm || !detectedColors || !detectedFace) {
       return;
     }
 
-    commitFace(detectedColors, visionAssist ? "vision" : "manual");
+    commitFace(detectedFace, detectedColors, visionAssist ? "vision" : "manual");
   };
 
   useEffect(() => {
@@ -367,7 +377,7 @@ export default function ScanPage() {
     );
 
     if (progress >= 1) {
-      commitFace(localDetectedColors, "auto");
+      commitFace(currentFace, localDetectedColors, "auto");
     }
   }, [
     commitFace,
@@ -620,7 +630,7 @@ export default function ScanPage() {
               onClick={handleConfirmFace}
               disabled={!canConfirm}
             >
-              Confirm {FACE_NAMES[currentFace]}
+              Confirm {FACE_NAMES[detectedFace ?? currentFace]}
             </Button>
             <Button
               variant="secondary"
