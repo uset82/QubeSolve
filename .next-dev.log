@@ -5,11 +5,9 @@
 ▲ Next.js 16.2.2 (Turbopack)
 - Local:         http://127.0.0.1:3001
 - Network:       http://127.0.0.1:3001
-✓ Ready in 563ms
+✓ Ready in 632ms
 
- GET /scan 200 in 744ms (next.js: 283ms, application-code: 461ms)
- GET /scan 200 in 88ms (next.js: 21ms, application-code: 67ms)
- GET /manifest.webmanifest 200 in 164ms (next.js: 141ms, application-code: 23ms)
- GET /icon?0f826fbaaa7108aa 200 in 823ms (next.js: 47ms, application-code: 777ms)
- GET /icons/144 200 in 1448ms (next.js: 1395ms, application-code: 53ms)
- POST /api/vision 200 in 18.6s (next.js: 658ms, application-code: 18.0s)
+ GET /scan 200 in 448ms (next.js: 188ms, application-code: 260ms)
+ GET /scan 200 in 167ms (next.js: 11ms, application-code: 156ms)
+ GET /manifest.webmanifest 200 in 191ms (next.js: 169ms, application-code: 22ms)
+ GET /icons/144 200 in 2.3s (next.js: 1686ms, application-code: 604ms)

@@ -14,6 +14,8 @@ import Button from "@/components/ui/Button";
 import {
   CAMERA_PROCESS_INTERVAL,
   COLOR_CSS_MAP,
+  CUBE_COLORS,
+  type CubeColor,
   type Face,
 } from "@/lib/constants";
 import {
@@ -28,6 +30,11 @@ interface CameraScannerProps {
   activeFace: Face;
   onDetectionChange?: (detections: ColorDetectionResult[]) => void;
   onUseVisionAssist?: () => void;
+  onPreviewCellClick?: (index: number) => void;
+  onPreviewColorPick?: (color: CubeColor) => void;
+  onPreviewReset?: () => void;
+  previewColors?: ReadonlyArray<CubeColor | null>;
+  previewSelectedIndex?: number | null;
   showVisionAssist?: boolean;
   visionAssistMessage?: string | null;
   visionAssistPending?: boolean;
@@ -72,6 +79,11 @@ const CameraScanner = forwardRef<CameraScannerHandle, CameraScannerProps>(
       activeFace,
       onDetectionChange,
       onUseVisionAssist,
+      onPreviewCellClick,
+      onPreviewColorPick,
+      onPreviewReset,
+      previewColors,
+      previewSelectedIndex = null,
       showVisionAssist = false,
       visionAssistMessage = null,
       visionAssistPending = false,
@@ -95,6 +107,11 @@ const CameraScanner = forwardRef<CameraScannerHandle, CameraScannerProps>(
     const detectionsRef = useRef<ColorDetectionResult[]>(emptyDetections);
     const averageConfidenceRef = useRef(0);
     const visibleDetections = isReady ? detections : emptyDetections;
+    const displayPreviewColors = previewColors
+      ? Array.from(previewColors)
+      : visibleDetections.map((detection) =>
+          detection.color === "unknown" ? null : detection.color
+        );
     const emitDetectionChange = useEffectEvent(
       (nextDetections: ColorDetectionResult[]) => {
         onDetectionChange?.(nextDetections);
@@ -289,24 +306,68 @@ const CameraScanner = forwardRef<CameraScannerHandle, CameraScannerProps>(
           )}
 
           <div className="scan-stage__preview" aria-label="Live detected colors">
-            {visibleDetections.map((detection, index) => {
-              const knownColor =
-                detection.color === "unknown" ? null : detection.color;
-
+            {displayPreviewColors.map((knownColor, index) => {
               return (
-                <span
+                <button
                   key={`preview-${index}`}
-                  className="scan-stage__preview-cell"
+                  type="button"
+                  className={`scan-stage__preview-cell${
+                    onPreviewCellClick ? " scan-stage__preview-cell--interactive" : ""
+                  }${
+                    previewSelectedIndex === index
+                      ? " scan-stage__preview-cell--selected"
+                      : ""
+                  }`}
                   style={{
                     backgroundColor: !knownColor
                       ? "rgba(255, 255, 255, 0.06)"
                       : COLOR_CSS_MAP[knownColor],
                   }}
                   title={knownColor ?? "Unknown"}
+                  onClick={() => onPreviewCellClick?.(index)}
+                  aria-label={`Sticker ${index + 1}: ${knownColor ?? "unknown"}`}
+                  aria-pressed={previewSelectedIndex === index}
                 />
               );
             })}
           </div>
+
+          {onPreviewColorPick && (
+            <div className="scan-stage__editor">
+              <p className="scan-stage__editorHint">
+                {previewSelectedIndex === null
+                  ? "Tap a sticker to correct it."
+                  : `Editing sticker ${previewSelectedIndex + 1}. Choose the matching color.`}
+              </p>
+              <div className="scan-stage__palette" aria-label="Quick color correction">
+                {CUBE_COLORS.map((color) => (
+                  <button
+                    key={`palette-${color}`}
+                    type="button"
+                    className="scan-stage__paletteButton"
+                    onClick={() => onPreviewColorPick(color)}
+                    disabled={previewSelectedIndex === null}
+                    aria-label={`Set sticker to ${color}`}
+                  >
+                    <span
+                      className="scan-stage__paletteSwatch"
+                      style={{ backgroundColor: COLOR_CSS_MAP[color] }}
+                    />
+                    <span>{color}</span>
+                  </button>
+                ))}
+                {onPreviewReset && (
+                  <button
+                    type="button"
+                    className="scan-stage__paletteButton scan-stage__paletteButton--ghost"
+                    onClick={onPreviewReset}
+                  >
+                    Clear edits
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {(!isSupported || error) && (
             <div className="scan-stage__fallback">

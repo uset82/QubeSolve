@@ -10,7 +10,7 @@ function getRequiredEnv(name: string): string {
   const value = process.env[name]?.trim();
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    return "";
   }
 
   return value;
@@ -25,8 +25,13 @@ export function getOpenRouterClient(): OpenRouter {
     return client;
   }
 
+  const apiKey = getRequiredEnv("OPENROUTER_API") || getRequiredEnv("OPENROUTER_API_KEY");
+  if (!apiKey) {
+    throw new Error("Missing required environment variable: OPENROUTER_API_KEY");
+  }
+
   client = new OpenRouter({
-    apiKey: getRequiredEnv("OPENROUTER_API_KEY"),
+    apiKey,
     appTitle: process.env.OPENROUTER_APP_NAME?.trim() || "QubeSolve",
     httpReferer: process.env.OPENROUTER_SITE_URL?.trim(),
     timeoutMs: 30000,

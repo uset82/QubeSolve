@@ -43,6 +43,11 @@ import "@/styles/scan.css";
 const AUTO_CAPTURE_HOLD_MS = 900;
 const AUTO_CAPTURE_LOCKOUT_MS = 1200;
 const AUTO_CAPTURE_MIN_CONFIDENCE = 0.78;
+const STICKERS_PER_FACE = 9;
+
+function createManualStickerOverrides(): Array<CubeColor | null> {
+  return Array.from({ length: STICKERS_PER_FACE }, () => null);
+}
 
 function findNextFaceIndex(scannedFaces: ScannedFacesMap): number {
   const nextMissingIndex = SCAN_ORDER.findIndex((face) => !scannedFaces[face]);
@@ -79,6 +84,35 @@ function getDetectionKey(face: Face, colors: CubeColor[]): string {
   return `${face}:${colors.join(",")}`;
 }
 
+function getPreviewColors(
+  detections: ColorDetectionResult[]
+): Array<CubeColor | null> {
+  return Array.from({ length: STICKERS_PER_FACE }, (_, index) => {
+    const color = detections[index]?.color;
+    return color && color !== "unknown" ? color : null;
+  });
+}
+
+function applyManualStickerOverrides(
+  previewColors: ReadonlyArray<CubeColor | null>,
+  overrides: ReadonlyArray<CubeColor | null>
+): Array<CubeColor | null> {
+  return previewColors.map((color, index) => overrides[index] ?? color);
+}
+
+function getCompletedColors(
+  previewColors: ReadonlyArray<CubeColor | null>
+): CubeColor[] | null {
+  if (
+    previewColors.length !== STICKERS_PER_FACE ||
+    previewColors.some((color) => color === null)
+  ) {
+    return null;
+  }
+
+  return previewColors as CubeColor[];
+}
+
 export default function ScanPage() {
   const router = useRouter();
   const scannerRef = useRef<CameraScannerHandle>(null);
@@ -102,6 +136,12 @@ export default function ScanPage() {
   const [visionAssistPending, setVisionAssistPending] = useState(false);
   const [autoCaptureProgress, setAutoCaptureProgress] = useState(0);
   const [autoCaptureMessage, setAutoCaptureMessage] = useState<string | null>(null);
+  const [selectedStickerIndex, setSelectedStickerIndex] = useState<number | null>(
+    null
+  );
+  const [manualStickerOverrides, setManualStickerOverrides] = useState<
+    Array<CubeColor | null>
+  >(createManualStickerOverrides);
 
   const currentFace = SCAN_ORDER[currentFaceIndex];
   const expectedCenterColor = FACE_CENTER_COLORS[currentFace];
@@ -120,15 +160,26 @@ export default function ScanPage() {
         : liveDetections,
     [liveDetections, visionAssist]
   );
-  const detectedColors = useMemo(
-    () => getDetectedColors(effectiveDetections),
+  const basePreviewColors = useMemo(
+    () => getPreviewColors(effectiveDetections),
     [effectiveDetections]
+  );
+  const editedPreviewColors = useMemo(
+    () => applyManualStickerOverrides(basePreviewColors, manualStickerOverrides),
+    [basePreviewColors, manualStickerOverrides]
+  );
+  const detectedColors = useMemo(
+    () => getCompletedColors(editedPreviewColors),
+    [editedPreviewColors]
   );
   const localHasExpectedCenter =
     localDetectedColors !== null && localDetectedColors[4] === expectedCenterColor;
   const hasExpectedCenter =
     detectedColors !== null && detectedColors[4] === expectedCenterColor;
   const canConfirm = detectedColors !== null && hasExpectedCenter;
+  const hasManualStickerOverrides = manualStickerOverrides.some(
+    (color) => color !== null
+  );
   const allFacesCaptured = confirmedFaces.length === SCAN_ORDER.length;
   const liveAverageConfidence = useMemo(
     () =>
@@ -155,6 +206,8 @@ export default function ScanPage() {
     setVisionAssistError(null);
     setAutoCaptureProgress(0);
     setAutoCaptureMessage(null);
+    setSelectedStickerIndex(null);
+    setManualStickerOverrides(createManualStickerOverrides());
     autoCaptureRef.current = {
       candidateKey: null,
       stableSince: 0,
@@ -179,10 +232,15 @@ export default function ScanPage() {
       return `This looks like the ${detectedColors[4]}-center face. Rotate the cube until the ${expectedCenterColor} center is inside the grid.`;
     }
 
+    if (hasManualStickerOverrides) {
+      return "Manual correction active. Confirm when the 9 stickers match the cube face.";
+    }
+
     return null;
   }, [
     detectedColors,
     expectedCenterColor,
+    hasManualStickerOverrides,
     hasExpectedCenter,
     visionAssist,
   ]);
@@ -242,7 +300,7 @@ export default function ScanPage() {
   };
 
   useEffect(() => {
-    if (visionAssist || visionAssistPending) {
+    if (visionAssist || visionAssistPending || hasManualStickerOverrides) {
       setAutoCaptureProgress(0);
       return;
     }
@@ -286,6 +344,7 @@ export default function ScanPage() {
   }, [
     commitFace,
     currentFace,
+    hasManualStickerOverrides,
     localDetectedColors,
     localHasExpectedCenter,
     liveAverageConfidence,
@@ -315,6 +374,27 @@ export default function ScanPage() {
     } finally {
       setVisionAssistPending(false);
     }
+  };
+
+  const handlePreviewCellClick = (index: number) => {
+    setSelectedStickerIndex((current) => (current === index ? null : index));
+  };
+
+  const handlePreviewColorPick = (color: CubeColor) => {
+    if (selectedStickerIndex === null) {
+      return;
+    }
+
+    setManualStickerOverrides((current) =>
+      current.map((value, index) =>
+        index === selectedStickerIndex ? color : value
+      )
+    );
+  };
+
+  const handlePreviewReset = () => {
+    setManualStickerOverrides(createManualStickerOverrides());
+    setSelectedStickerIndex(null);
   };
 
   return (
@@ -411,6 +491,13 @@ export default function ScanPage() {
             activeFace={currentFace}
             onDetectionChange={setLiveDetections}
             onUseVisionAssist={handleUseVisionAssist}
+            onPreviewCellClick={handlePreviewCellClick}
+            onPreviewColorPick={handlePreviewColorPick}
+            onPreviewReset={
+              hasManualStickerOverrides ? handlePreviewReset : undefined
+            }
+            previewColors={editedPreviewColors}
+            previewSelectedIndex={selectedStickerIndex}
             showVisionAssist={showVisionAssist}
             visionAssistPending={visionAssistPending}
             visionAssistMessage={
@@ -459,6 +546,11 @@ export default function ScanPage() {
                 }}
               >
                 Clear AI result
+              </Button>
+            )}
+            {hasManualStickerOverrides && (
+              <Button variant="ghost" onClick={handlePreviewReset}>
+                Clear sticker edits
               </Button>
             )}
             <Button

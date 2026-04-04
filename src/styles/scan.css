@@ -291,6 +291,26 @@
   aspect-ratio: 1;
   border-radius: var(--radius-xs);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.scan-stage__preview-cell--interactive {
+  cursor: pointer;
+}
+
+.scan-stage__preview-cell--interactive:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.scan-stage__preview-cell--selected {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.16),
+    0 0 20px rgba(108, 99, 255, 0.18);
 }
 
 .scan-stage__fallback {
@@ -307,6 +327,62 @@
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.scan-stage__editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.scan-stage__editorHint {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.scan-stage__palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scan-stage__paletteButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.scan-stage__paletteButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.scan-stage__paletteButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.scan-stage__paletteButton--ghost {
+  color: var(--text-secondary);
+  border-style: dashed;
+}
+
+.scan-stage__paletteSwatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .scan-stage__assistMessage {
@@ -368,5 +444,15 @@
 
   .scan-stage__preview {
     gap: 4px;
+  }
+
+  .scan-stage__palette {
+    gap: 4px;
+  }
+
+  .scan-stage__paletteButton {
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 0.76rem;
   }
 }
