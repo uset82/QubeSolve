@@ -21,3 +21,10 @@
  GET / 200 in 193ms (next.js: 13ms, application-code: 181ms)
  GET /manifest.webmanifest 200 in 31ms (next.js: 6ms, application-code: 25ms)
  GET /icons/144 200 in 62ms (next.js: 10ms, application-code: 52ms)
+ GET /scan 200 in 205ms (next.js: 119ms, application-code: 86ms)
+ GET /manifest.webmanifest 200 in 8ms (next.js: 3ms, application-code: 5ms)
+ GET /icons/144 200 in 95ms (next.js: 15ms, application-code: 80ms)
+✓ Compiled in 28ms
+ GET / 200 in 38ms (next.js: 3ms, application-code: 35ms)
+ GET /manifest.webmanifest 200 in 19ms (next.js: 7ms, application-code: 12ms)
+ GET /icons/144 200 in 164ms (next.js: 16ms, application-code: 148ms)
