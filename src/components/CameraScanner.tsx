@@ -103,7 +103,7 @@ const CameraScanner = forwardRef<CameraScannerHandle, CameraScannerProps>(
     );
     const [emptyDetections] = useState(createEmptyDetections);
     const [customThresholds] = useState(() => loadCustomThresholds() ?? undefined);
-    const cellRefs = useRef<Array<HTMLSpanElement | null>>([]);
+    const cellRefs = useRef<Array<HTMLElement | null>>([]);
     const detectionsRef = useRef<ColorDetectionResult[]>(emptyDetections);
     const averageConfidenceRef = useRef(0);
     const visibleDetections = isReady ? detections : emptyDetections;
@@ -275,23 +275,57 @@ const CameraScanner = forwardRef<CameraScannerHandle, CameraScannerProps>(
             muted
             playsInline
           />
-          <div className="scan-stage__overlay" aria-hidden="true">
-            <div className="scan-stage__grid">
-              {Array.from({ length: 9 }, (_, index) => {
-                const cell = visibleDetections[index];
-                const background =
-                  cell?.color && cell.color !== "unknown"
-                    ? COLOR_CSS_MAP[cell.color]
-                    : "rgba(255, 255, 255, 0.04)";
+          <div
+            className="scan-stage__overlay"
+            aria-hidden={onPreviewCellClick ? undefined : true}
+          >
+            <div
+              className={`scan-stage__grid${
+                onPreviewCellClick ? " scan-stage__grid--interactive" : ""
+              }`}
+            >
+              {displayPreviewColors.map((knownColor, index) => {
+                const cellClassName = [
+                  "scan-stage__cell",
+                  onPreviewCellClick ? "scan-stage__cell--interactive" : "",
+                  previewSelectedIndex === index
+                    ? "scan-stage__cell--selected"
+                    : "",
+                  knownColor === null ? "scan-stage__cell--unknown" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                const cellStyle = {
+                  backgroundColor: !knownColor
+                    ? "rgba(255, 255, 255, 0.04)"
+                    : COLOR_CSS_MAP[knownColor],
+                };
+
+                if (onPreviewCellClick) {
+                  return (
+                    <button
+                      key={`grid-cell-${index}`}
+                      type="button"
+                      className={cellClassName}
+                      ref={(node) => {
+                        cellRefs.current[index] = node;
+                      }}
+                      style={cellStyle}
+                      onClick={() => onPreviewCellClick(index)}
+                      aria-label={`Sticker ${index + 1}: ${knownColor ?? "unknown"}`}
+                      aria-pressed={previewSelectedIndex === index}
+                    />
+                  );
+                }
 
                 return (
                   <span
                     key={`grid-cell-${index}`}
-                    className="scan-stage__cell"
+                    className={cellClassName}
                     ref={(node) => {
                       cellRefs.current[index] = node;
                     }}
-                    style={{ backgroundColor: background }}
+                    style={cellStyle}
                   />
                 );
               })}
@@ -305,38 +339,11 @@ const CameraScanner = forwardRef<CameraScannerHandle, CameraScannerProps>(
             <p className="scan-stage__status scan-stage__status--error">{error}</p>
           )}
 
-          <div className="scan-stage__preview" aria-label="Live detected colors">
-            {displayPreviewColors.map((knownColor, index) => {
-              return (
-                <button
-                  key={`preview-${index}`}
-                  type="button"
-                  className={`scan-stage__preview-cell${
-                    onPreviewCellClick ? " scan-stage__preview-cell--interactive" : ""
-                  }${
-                    previewSelectedIndex === index
-                      ? " scan-stage__preview-cell--selected"
-                      : ""
-                  }`}
-                  style={{
-                    backgroundColor: !knownColor
-                      ? "rgba(255, 255, 255, 0.06)"
-                      : COLOR_CSS_MAP[knownColor],
-                  }}
-                  title={knownColor ?? "Unknown"}
-                  onClick={() => onPreviewCellClick?.(index)}
-                  aria-label={`Sticker ${index + 1}: ${knownColor ?? "unknown"}`}
-                  aria-pressed={previewSelectedIndex === index}
-                />
-              );
-            })}
-          </div>
-
           {onPreviewColorPick && (
             <div className="scan-stage__editor">
               <p className="scan-stage__editorHint">
                 {previewSelectedIndex === null
-                  ? "Tap a sticker to correct it."
+                  ? "Tap a sticker in the grid to correct it."
                   : `Editing sticker ${previewSelectedIndex + 1}. Choose the matching color.`}
               </p>
               <div className="scan-stage__palette" aria-label="Quick color correction">
