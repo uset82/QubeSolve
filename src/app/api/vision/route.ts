@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 const VALID_FACES = new Set<Face>(["U", "D", "F", "B", "L", "R"]);
 const MAX_IMAGE_DATA_URL_LENGTH = 4_000_000;
+const VISION_REQUEST_TIMEOUT_MS = 20_000;
 
 interface VisionRouteRequestBody {
   imageDataUrl?: unknown;
@@ -25,6 +26,25 @@ function parseFace(value: unknown): Face | undefined {
   }
 
   return normalized;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error("OpenRouter vision request timed out."));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle !== null) {
+      clearTimeout(timeoutHandle);
+    }
+  }
 }
 
 export async function POST(request: Request) {
@@ -72,10 +92,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const analysis = await analyzeCubeFaceWithOpenRouter({
-      imageDataUrl,
-      faceHint: face,
-    });
+    const analysis = await withTimeout(
+      analyzeCubeFaceWithOpenRouter({
+        imageDataUrl,
+        faceHint: face,
+      }),
+      VISION_REQUEST_TIMEOUT_MS
+    );
 
     return NextResponse.json(analysis);
   } catch (error) {

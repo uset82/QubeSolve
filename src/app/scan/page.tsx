@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import CameraScanner, {
   type CameraScannerHandle,
@@ -14,20 +21,28 @@ import { type ColorDetectionResult } from "@/lib/colorDetection";
 import {
   COLOR_CSS_MAP,
   type CubeColor,
+  FACE_CENTER_COLORS,
   FACE_NAMES,
   SCAN_INSTRUCTIONS,
   SCAN_ORDER,
+  type Face,
 } from "@/lib/constants";
 import {
-  loadScanSession,
+  getScanSessionSnapshot,
+  getServerScanSessionSnapshot,
   type ScannedFacesMap,
   saveScanSession,
+  subscribeToScanSession,
 } from "@/lib/scanSession";
 import {
   requestVisionAssist,
   type VisionAssistResult,
 } from "@/lib/visionClient";
 import "@/styles/scan.css";
+
+const AUTO_CAPTURE_HOLD_MS = 900;
+const AUTO_CAPTURE_LOCKOUT_MS = 1200;
+const AUTO_CAPTURE_MIN_CONFIDENCE = 0.78;
 
 function findNextFaceIndex(scannedFaces: ScannedFacesMap): number {
   const nextMissingIndex = SCAN_ORDER.findIndex((face) => !scannedFaces[face]);
@@ -60,90 +75,152 @@ function createVisionDetections(
   }));
 }
 
+function getDetectionKey(face: Face, colors: CubeColor[]): string {
+  return `${face}:${colors.join(",")}`;
+}
+
 export default function ScanPage() {
   const router = useRouter();
   const scannerRef = useRef<CameraScannerHandle>(null);
-  const [scannedFaces, setScannedFaces] = useState<ScannedFacesMap>(
-    () => loadScanSession()?.scannedFaces ?? {}
+  const autoCaptureRef = useRef({
+    candidateKey: null as string | null,
+    stableSince: 0,
+    lockoutUntil: 0,
+  });
+  const [manualFaceIndex, setManualFaceIndex] = useState<number | null>(null);
+  const scanSession = useSyncExternalStore(
+    subscribeToScanSession,
+    getScanSessionSnapshot,
+    getServerScanSessionSnapshot
   );
-  const [currentFaceIndex, setCurrentFaceIndex] = useState(() =>
-    findNextFaceIndex(loadScanSession()?.scannedFaces ?? {})
-  );
+  const scannedFaces = scanSession?.scannedFaces ?? ({} satisfies ScannedFacesMap);
+  const currentFaceIndex =
+    manualFaceIndex ?? findNextFaceIndex(scannedFaces);
   const [liveDetections, setLiveDetections] = useState<ColorDetectionResult[]>([]);
   const [visionAssist, setVisionAssist] = useState<VisionAssistResult | null>(null);
   const [visionAssistError, setVisionAssistError] = useState<string | null>(null);
   const [visionAssistPending, setVisionAssistPending] = useState(false);
+  const [autoCaptureProgress, setAutoCaptureProgress] = useState(0);
+  const [autoCaptureMessage, setAutoCaptureMessage] = useState<string | null>(null);
 
   const currentFace = SCAN_ORDER[currentFaceIndex];
-  const confirmedFaces = SCAN_ORDER.filter((face) => scannedFaces[face]);
-  const effectiveDetections = visionAssist
-    ? createVisionDetections(visionAssist.colors, visionAssist.confidence)
-    : liveDetections;
-  const detectedColors = getDetectedColors(effectiveDetections);
+  const expectedCenterColor = FACE_CENTER_COLORS[currentFace];
+  const confirmedFaces = useMemo(
+    () => SCAN_ORDER.filter((face) => scannedFaces[face]),
+    [scannedFaces]
+  );
+  const localDetectedColors = useMemo(
+    () => getDetectedColors(liveDetections),
+    [liveDetections]
+  );
+  const effectiveDetections = useMemo(
+    () =>
+      visionAssist
+        ? createVisionDetections(visionAssist.colors, visionAssist.confidence)
+        : liveDetections,
+    [liveDetections, visionAssist]
+  );
+  const detectedColors = useMemo(
+    () => getDetectedColors(effectiveDetections),
+    [effectiveDetections]
+  );
+  const localHasExpectedCenter =
+    localDetectedColors !== null && localDetectedColors[4] === expectedCenterColor;
+  const hasExpectedCenter =
+    detectedColors !== null && detectedColors[4] === expectedCenterColor;
+  const canConfirm = detectedColors !== null && hasExpectedCenter;
   const allFacesCaptured = confirmedFaces.length === SCAN_ORDER.length;
-  const liveAverageConfidence =
-    liveDetections.length > 0
-      ? liveDetections.reduce((sum, item) => sum + item.confidence, 0) /
-        liveDetections.length
-      : 0;
-  const averageConfidence =
-    effectiveDetections.length > 0
-      ? effectiveDetections.reduce((sum, item) => sum + item.confidence, 0) /
-        effectiveDetections.length
-      : 0;
+  const liveAverageConfidence = useMemo(
+    () =>
+      liveDetections.length > 0
+        ? liveDetections.reduce((sum, item) => sum + item.confidence, 0) /
+          liveDetections.length
+        : 0,
+    [liveDetections]
+  );
+  const averageConfidence = useMemo(
+    () =>
+      effectiveDetections.length > 0
+        ? effectiveDetections.reduce((sum, item) => sum + item.confidence, 0) /
+          effectiveDetections.length
+        : 0,
+    [effectiveDetections]
+  );
   const showVisionAssist =
     liveDetections.length > 0 &&
-    (!getDetectedColors(liveDetections) || liveAverageConfidence < 0.7);
+    (!localDetectedColors || liveAverageConfidence < 0.7);
 
   useEffect(() => {
     setVisionAssist(null);
     setVisionAssistError(null);
+    setAutoCaptureProgress(0);
+    setAutoCaptureMessage(null);
+    autoCaptureRef.current = {
+      candidateKey: null,
+      stableSince: 0,
+      lockoutUntil: 0,
+    };
   }, [currentFace]);
 
   const statusMessage = useMemo(() => {
     if (visionAssist) {
-      return `AI assist read this face at ${Math.round(
-        visionAssist.confidence * 100
-      )}% confidence. Confirm it only if the preview looks right.`;
-    }
+      if (!hasExpectedCenter && detectedColors) {
+        return `AI assist sees a ${detectedColors[4]} center, but this step expects ${expectedCenterColor}. Rotate to the instructed face before confirming.`;
+      }
 
-    if (effectiveDetections.length === 0) {
-      return "Waiting for the camera feed to stabilize.";
+      return null;
     }
 
     if (!detectedColors) {
       return "Some stickers are still ambiguous. Adjust the cube or lighting.";
     }
 
-    if (averageConfidence < 0.65) {
-      return "Detection is usable but low confidence. Hold steady for a cleaner read.";
+    if (!hasExpectedCenter) {
+      return `This looks like the ${detectedColors[4]}-center face. Rotate the cube until the ${expectedCenterColor} center is inside the grid.`;
     }
 
-    return "Detection looks stable. You can confirm this face.";
-  }, [averageConfidence, detectedColors, effectiveDetections.length, visionAssist]);
+    return null;
+  }, [
+    detectedColors,
+    expectedCenterColor,
+    hasExpectedCenter,
+    visionAssist,
+  ]);
 
   const statusClassName = visionAssist
-    ? "scan-page__status scan-page__status--ready"
+    ? hasExpectedCenter
+      ? "scan-page__status scan-page__status--ready"
+      : "scan-page__status scan-page__status--warn"
     : !detectedColors
       ? "scan-page__status scan-page__status--warn"
+      : !hasExpectedCenter
+        ? "scan-page__status scan-page__status--warn"
       : averageConfidence < 0.65
         ? "scan-page__status scan-page__status--soft"
         : "scan-page__status scan-page__status--ready";
 
-  const handleConfirmFace = () => {
-    if (!detectedColors) {
-      return;
-    }
-
+  const commitFace = useCallback((colors: CubeColor[], source: "auto" | "manual" | "vision") => {
+    const isReplacement = Boolean(scannedFaces[currentFace]);
     const nextScannedFaces = {
       ...scannedFaces,
-      [currentFace]: detectedColors,
+      [currentFace]: colors,
     };
 
-    setScannedFaces(nextScannedFaces);
     saveScanSession(nextScannedFaces);
     setVisionAssist(null);
     setVisionAssistError(null);
+    setAutoCaptureProgress(0);
+    setAutoCaptureMessage(
+      source === "auto"
+        ? `${FACE_NAMES[currentFace]} captured automatically. Rotate to the next face.`
+        : isReplacement
+          ? `${FACE_NAMES[currentFace]} updated.`
+          : `${FACE_NAMES[currentFace]} saved.`
+    );
+
+    autoCaptureRef.current.lockoutUntil = performance.now() + AUTO_CAPTURE_LOCKOUT_MS;
+    autoCaptureRef.current.candidateKey = null;
+    autoCaptureRef.current.stableSince = 0;
 
     const nextIndex = findNextFaceIndex(nextScannedFaces);
     const everythingCaptured = SCAN_ORDER.every((face) => nextScannedFaces[face]);
@@ -153,8 +230,68 @@ export default function ScanPage() {
       return;
     }
 
-    setCurrentFaceIndex(nextIndex);
+    setManualFaceIndex(nextIndex);
+  }, [currentFace, router, scannedFaces]);
+
+  const handleConfirmFace = () => {
+    if (!canConfirm || !detectedColors) {
+      return;
+    }
+
+    commitFace(detectedColors, visionAssist ? "vision" : "manual");
   };
+
+  useEffect(() => {
+    if (visionAssist || visionAssistPending) {
+      setAutoCaptureProgress(0);
+      return;
+    }
+
+    if (
+      !localDetectedColors ||
+      !localHasExpectedCenter ||
+      liveAverageConfidence < AUTO_CAPTURE_MIN_CONFIDENCE
+    ) {
+      autoCaptureRef.current.candidateKey = null;
+      autoCaptureRef.current.stableSince = 0;
+      setAutoCaptureProgress(0);
+      return;
+    }
+
+    const now = performance.now();
+
+    if (now < autoCaptureRef.current.lockoutUntil) {
+      setAutoCaptureProgress(0);
+      return;
+    }
+
+    const candidateKey = getDetectionKey(currentFace, localDetectedColors);
+
+    if (autoCaptureRef.current.candidateKey !== candidateKey) {
+      autoCaptureRef.current.candidateKey = candidateKey;
+      autoCaptureRef.current.stableSince = now;
+      setAutoCaptureProgress(0);
+      return;
+    }
+
+    const elapsed = now - autoCaptureRef.current.stableSince;
+    const progress = Math.min(elapsed / AUTO_CAPTURE_HOLD_MS, 1);
+    setAutoCaptureProgress((previous) =>
+      Math.abs(previous - progress) > 0.01 ? progress : previous
+    );
+
+    if (progress >= 1) {
+      commitFace(localDetectedColors, "auto");
+    }
+  }, [
+    commitFace,
+    currentFace,
+    localDetectedColors,
+    localHasExpectedCenter,
+    liveAverageConfidence,
+    visionAssist,
+    visionAssistPending,
+  ]);
 
   const handleUseVisionAssist = async () => {
     const imageDataUrl = scannerRef.current?.captureFrameDataUrl();
@@ -214,6 +351,41 @@ export default function ScanPage() {
             value={confirmedFaces.length}
           />
 
+          <div className="scan-page__captureAssist">
+            <div className="scan-page__captureAssistHeader">
+              <strong>Auto-capture</strong>
+              <span>
+                {localHasExpectedCenter &&
+                localDetectedColors &&
+                liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
+                  ? `${Math.round(autoCaptureProgress * 100)}%`
+                  : "Waiting"}
+              </span>
+            </div>
+            <ProgressBar
+              label="Hold steady to save this face"
+              max={100}
+              value={
+                localHasExpectedCenter &&
+                localDetectedColors &&
+                liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
+                  ? Math.round(autoCaptureProgress * 100)
+                  : 0
+              }
+              showNumbers={false}
+            />
+            <p className="route-shell__copy">
+              {localDetectedColors && !localHasExpectedCenter
+                ? `Center ${localDetectedColors[4]}. Waiting for ${expectedCenterColor}.`
+                : liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
+                  ? "Hold steady to auto-save."
+                  : "Stabilizing read."}
+            </p>
+            {autoCaptureMessage && (
+              <div className="scan-page__autocaptureNotice">{autoCaptureMessage}</div>
+            )}
+          </div>
+
           <div className="scan-page__progress" aria-label="Scanned faces">
             {SCAN_ORDER.map((face, index) => {
               const isDone = Boolean(scannedFaces[face]);
@@ -226,7 +398,7 @@ export default function ScanPage() {
                   className={`scan-page__face-chip${
                     isActive ? " scan-page__face-chip--active" : ""
                   }${isDone ? " scan-page__face-chip--done" : ""}`}
-                  onClick={() => setCurrentFaceIndex(index)}
+                  onClick={() => setManualFaceIndex(index)}
                 >
                   {face}
                 </button>
@@ -246,13 +418,11 @@ export default function ScanPage() {
                 ? visionAssistError
                 : visionAssist
                   ? `AI assist used ${visionAssist.model}. ${visionAssist.notes}`
-                  : showVisionAssist
-                    ? "Low confidence detected. AI assist can analyze the current frame."
-                    : null
+                  : null
             }
           />
 
-          <div className={statusClassName}>{statusMessage}</div>
+          {statusMessage && <div className={statusClassName}>{statusMessage}</div>}
 
           {visionAssist && (
             <div className="scan-page__assistCard">
@@ -269,13 +439,13 @@ export default function ScanPage() {
             <Button
               variant="primary"
               onClick={handleConfirmFace}
-              disabled={!detectedColors}
+              disabled={!canConfirm}
             >
               Confirm {FACE_NAMES[currentFace]}
             </Button>
             <Button
               variant="secondary"
-              onClick={() => setCurrentFaceIndex(Math.max(0, currentFaceIndex - 1))}
+              onClick={() => setManualFaceIndex(Math.max(0, currentFaceIndex - 1))}
               disabled={currentFaceIndex === 0}
             >
               Previous face
@@ -318,7 +488,7 @@ export default function ScanPage() {
                   key={`captured-${face}`}
                   type="button"
                   className="scan-page__captured-card"
-                  onClick={() => setCurrentFaceIndex(index)}
+                  onClick={() => setManualFaceIndex(index)}
                 >
                   <div className="scan-page__captured-header">
                     <strong>{face}</strong>

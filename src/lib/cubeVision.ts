@@ -4,6 +4,7 @@ import { CUBE_COLORS, type CubeColor, type Face } from "@/lib/constants";
 import { getOpenRouterClient, getOpenRouterModel } from "@/lib/openrouter";
 
 const COLOR_SET = new Set(CUBE_COLORS);
+const FALLBACK_VISION_NOTES = "AI assist analyzed the current frame.";
 
 const CUBE_FACE_SCHEMA = {
   type: "object",
@@ -69,21 +70,38 @@ function extractTextContent(content: unknown): string {
     return content;
   }
 
+  if (
+    typeof content === "object" &&
+    content !== null &&
+    "text" in content &&
+    typeof content.text === "string"
+  ) {
+    return content.text;
+  }
+
   if (!Array.isArray(content)) {
     return "";
   }
 
   return content
     .map((item) => {
-      if (
-        typeof item === "object" &&
-        item !== null &&
-        "type" in item &&
-        item.type === "text" &&
-        "text" in item &&
-        typeof item.text === "string"
-      ) {
-        return item.text;
+      if (typeof item === "string") {
+        return item;
+      }
+
+      if (typeof item === "object" && item !== null) {
+        if ("text" in item && typeof item.text === "string") {
+          return item.text;
+        }
+
+        if (
+          "type" in item &&
+          item.type === "text" &&
+          "text" in item &&
+          typeof item.text === "string"
+        ) {
+          return item.text;
+        }
       }
 
       return "";
@@ -102,7 +120,105 @@ function stripCodeFence(raw: string): string {
   return trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
 }
 
-function parseAnalysisPayload(rawContent: string): {
+function collectNotesFragments(
+  value: unknown,
+  seen: WeakSet<object> = new WeakSet()
+): string[] {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return [String(value)];
+  }
+
+  if (value == null) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectNotesFragments(entry, seen));
+  }
+
+  if (typeof value !== "object") {
+    return [];
+  }
+
+  if (seen.has(value)) {
+    return [];
+  }
+
+  seen.add(value);
+  const record = value as Record<string, unknown>;
+
+  const prioritizedKeys = [
+    "notes",
+    "text",
+    "message",
+    "summary",
+    "reasoning",
+    "content",
+    "description",
+  ] as const;
+  const prioritizedFragments = prioritizedKeys.flatMap((key) =>
+    key in record ? collectNotesFragments(record[key], seen) : []
+  );
+
+  if (prioritizedFragments.length > 0) {
+    return prioritizedFragments;
+  }
+
+  return Object.values(record).flatMap((entry) =>
+    collectNotesFragments(entry, seen)
+  );
+}
+
+export function normalizeVisionNotes(value: unknown): string {
+  const normalized = collectNotesFragments(value)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || FALLBACK_VISION_NOTES;
+}
+
+function normalizeCubeColors(value: unknown): CubeColor[] {
+  if (!Array.isArray(value) || value.length !== 9) {
+    throw new Error("OpenRouter returned an invalid colors array.");
+  }
+
+  const normalizedColors = value.map((color) =>
+    typeof color === "string" ? color.trim().toLowerCase() : color
+  );
+
+  if (
+    normalizedColors.some(
+      (color) => typeof color !== "string" || !COLOR_SET.has(color as CubeColor)
+    )
+  ) {
+    throw new Error("OpenRouter returned an invalid colors array.");
+  }
+
+  return normalizedColors as CubeColor[];
+}
+
+function normalizeConfidenceScore(value: unknown): number {
+  const parsedConfidence =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+
+  if (Number.isNaN(parsedConfidence)) {
+    throw new Error("OpenRouter returned an invalid confidence score.");
+  }
+
+  return Math.max(0, Math.min(1, parsedConfidence));
+}
+
+export function parseCubeVisionPayload(rawContent: string): {
   colors: CubeColor[];
   confidence: number;
   notes: string;
@@ -119,28 +235,10 @@ function parseAnalysisPayload(rawContent: string): {
     notes?: unknown;
   };
 
-  if (
-    !Array.isArray(parsed.colors) ||
-    parsed.colors.length !== 9 ||
-    parsed.colors.some(
-      (color) => typeof color !== "string" || !COLOR_SET.has(color as CubeColor)
-    )
-  ) {
-    throw new Error("OpenRouter returned an invalid colors array.");
-  }
-
-  if (typeof parsed.confidence !== "number" || Number.isNaN(parsed.confidence)) {
-    throw new Error("OpenRouter returned an invalid confidence score.");
-  }
-
-  if (typeof parsed.notes !== "string") {
-    throw new Error("OpenRouter returned invalid notes.");
-  }
-
   return {
-    colors: parsed.colors as CubeColor[],
-    confidence: Math.max(0, Math.min(1, parsed.confidence)),
-    notes: parsed.notes.trim(),
+    colors: normalizeCubeColors(parsed.colors),
+    confidence: normalizeConfidenceScore(parsed.confidence),
+    notes: normalizeVisionNotes(parsed.notes),
   };
 }
 
@@ -223,7 +321,7 @@ export async function analyzeCubeFaceWithOpenRouter({
     throw new Error("OpenRouter returned an empty response.");
   }
 
-  const analysis = parseAnalysisPayload(rawContent);
+  const analysis = parseCubeVisionPayload(rawContent);
 
   return {
     requestedFace: faceHint ?? null,

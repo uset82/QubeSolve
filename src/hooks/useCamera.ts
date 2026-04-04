@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 interface UseCameraResult {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -11,6 +11,9 @@ interface UseCameraResult {
   isSupported: boolean;
   restartCamera: () => void;
 }
+
+const UNSUPPORTED_CAMERA_MESSAGE =
+  "This browser does not support camera access. Use manual entry instead.";
 
 function stopMediaStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop());
@@ -38,11 +41,65 @@ function getCameraErrorMessage(error: unknown): string {
 }
 
 function browserSupportsCamera(): boolean {
-  if (typeof navigator === "undefined") {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
     return true;
   }
 
   return Boolean(navigator.mediaDevices?.getUserMedia);
+}
+
+function subscribeToCameraSupport(): () => void {
+  return () => {};
+}
+
+function getServerCameraSupportSnapshot(): boolean {
+  return true;
+}
+
+function getCoverCropRegion(
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number
+) {
+  if (
+    sourceWidth <= 0 ||
+    sourceHeight <= 0 ||
+    targetWidth <= 0 ||
+    targetHeight <= 0
+  ) {
+    return {
+      sx: 0,
+      sy: 0,
+      sWidth: sourceWidth,
+      sHeight: sourceHeight,
+    };
+  }
+
+  const sourceAspect = sourceWidth / sourceHeight;
+  const targetAspect = targetWidth / targetHeight;
+
+  if (sourceAspect > targetAspect) {
+    const sHeight = sourceHeight;
+    const sWidth = sHeight * targetAspect;
+
+    return {
+      sx: (sourceWidth - sWidth) / 2,
+      sy: 0,
+      sWidth,
+      sHeight,
+    };
+  }
+
+  const sWidth = sourceWidth;
+  const sHeight = sWidth / targetAspect;
+
+  return {
+    sx: 0,
+    sy: (sourceHeight - sHeight) / 2,
+    sWidth,
+    sHeight,
+  };
 }
 
 export function useCamera(): UseCameraResult {
@@ -52,16 +109,16 @@ export function useCamera(): UseCameraResult {
 
   const [restartKey, setRestartKey] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [error, setError] = useState<string | null>(() =>
-    browserSupportsCamera()
-      ? null
-      : "This browser does not support camera access. Use manual entry instead."
-  );
+  const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isSupported, setIsSupported] = useState(browserSupportsCamera);
+  const isSupported = useSyncExternalStore(
+    subscribeToCameraSupport,
+    browserSupportsCamera,
+    getServerCameraSupportSnapshot
+  );
 
   useEffect(() => {
-    if (typeof navigator === "undefined") {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
       return;
     }
 
@@ -91,16 +148,39 @@ export function useCamera(): UseCameraResult {
         video.videoWidth > 0 &&
         video.videoHeight > 0
       ) {
+        const targetWidth = Math.round(video.clientWidth) || video.videoWidth;
+        const targetHeight = Math.round(video.clientHeight) || video.videoHeight;
+
         if (
-          canvas.width !== video.videoWidth ||
-          canvas.height !== video.videoHeight
+          canvas.width !== targetWidth ||
+          canvas.height !== targetHeight
         ) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
         }
 
         const context = canvas.getContext("2d", { willReadFrequently: true });
-        context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (context) {
+          const crop = getCoverCropRegion(
+            video.videoWidth,
+            video.videoHeight,
+            canvas.width,
+            canvas.height
+          );
+
+          context.drawImage(
+            video,
+            crop.sx,
+            crop.sy,
+            crop.sWidth,
+            crop.sHeight,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+        }
 
         if (!readyRef.current) {
           readyRef.current = true;
@@ -179,7 +259,7 @@ export function useCamera(): UseCameraResult {
     videoRef,
     canvasRef,
     stream,
-    error,
+    error: isSupported ? error : UNSUPPORTED_CAMERA_MESSAGE,
     isReady,
     isSupported,
     restartCamera: () => {
@@ -188,12 +268,10 @@ export function useCamera(): UseCameraResult {
       setIsReady(false);
 
       if (!browserSupportsCamera()) {
-        setIsSupported(false);
-        setError("This browser does not support camera access. Use manual entry instead.");
+        setError(UNSUPPORTED_CAMERA_MESSAGE);
         return;
       }
 
-      setIsSupported(true);
       setError(null);
       setRestartKey((current) => current + 1);
     },

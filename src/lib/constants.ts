@@ -52,6 +52,15 @@ export const FACE_CENTER_COLORS: Record<Face, CubeColor> = {
   R: 'red',
 };
 
+export const CENTER_COLOR_TO_FACE: Record<CubeColor, Face> = {
+  white: 'U',
+  yellow: 'D',
+  green: 'F',
+  blue: 'B',
+  orange: 'L',
+  red: 'R',
+};
+
 /** Human-readable face names */
 export const FACE_NAMES: Record<Face, string> = {
   U: 'Top (White)',
