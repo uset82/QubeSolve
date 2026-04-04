@@ -1,0 +1,43 @@
+.manual-page {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(255, 140, 0, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(68, 136, 255, 0.12), transparent 34%),
+    var(--bg-primary);
+}
+
+.manual-page__hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.manual-page__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--bg-glass-border);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.manual-page__status--ready {
+  background: rgba(0, 212, 170, 0.12);
+  color: #b7fff0;
+  border-color: rgba(0, 212, 170, 0.2);
+}
+
+.manual-page__tip {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 720px) {
+  .manual-page__hero {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,188 @@
+/* ============================================================
+   QubeSolve — Home Screen Styles
+   ============================================================ */
+
+.home {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-md);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+/* ---- Background Orbs ---- */
+.home__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.home__orb--1 {
+  width: 300px;
+  height: 300px;
+  background: var(--accent-primary);
+  top: -100px;
+  right: -80px;
+  animation: orbit1 12s ease-in-out infinite;
+}
+
+.home__orb--2 {
+  width: 250px;
+  height: 250px;
+  background: var(--accent-secondary);
+  bottom: -80px;
+  left: -60px;
+  animation: orbit2 15s ease-in-out infinite;
+}
+
+.home__orb--3 {
+  width: 180px;
+  height: 180px;
+  background: var(--accent-warm);
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: orbit1 18s ease-in-out infinite reverse;
+  opacity: 0.2;
+}
+
+/* ---- Content ---- */
+.home__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  max-width: var(--max-width);
+  width: 100%;
+}
+
+/* ---- Logo / Cube Hero ---- */
+.home__hero {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin-bottom: var(--space-md);
+  animation: float 4s ease-in-out infinite;
+  display: grid;
+  place-items: center;
+}
+
+.home__halo {
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(108, 99, 255, 0.26), transparent 58%),
+    radial-gradient(circle at 70% 30%, rgba(0, 212, 170, 0.22), transparent 48%);
+  filter: blur(20px);
+  z-index: -1;
+}
+
+.home__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- Title ---- */
+.home__title {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.home__subtitle {
+  font-family: var(--font-body);
+  font-size: clamp(0.95rem, 3vw, 1.125rem);
+  color: var(--text-secondary);
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+/* ---- CTA Button ---- */
+.home__ctaStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 320px;
+}
+
+/* ---- Secondary Actions ---- */
+.home__secondary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.home__link {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  padding: var(--space-sm) var(--space-md);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.home__link:hover {
+  color: var(--accent-secondary);
+}
+
+/* ---- Settings Gear ---- */
+.home__settings {
+  position: absolute;
+  top: calc(var(--safe-area-top) + var(--space-md));
+  right: var(--space-md);
+  z-index: 2;
+}
+
+.home__settingsGlyph {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.home__settings:hover {
+  transform: rotate(30deg);
+}
+
+/* ---- Version Tag ---- */
+.home__version {
+  position: absolute;
+  bottom: calc(var(--safe-area-bottom) + var(--space-md));
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  z-index: 1;
+}
+
+/* ---- Responsive ---- */
+@media (min-width: 768px) {
+  .home__hero {
+    width: 250px;
+    height: 250px;
+  }
+
+  .home__ctaStack {
+    max-width: 360px;
+  }
+}

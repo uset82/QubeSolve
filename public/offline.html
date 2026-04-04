@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>QubeSolve Offline</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f0f1a;
+        --panel: rgba(255, 255, 255, 0.05);
+        --border: rgba(255, 255, 255, 0.1);
+        --text: #eaeaea;
+        --muted: #9a9ab6;
+        --accent: #00d4aa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at top right, rgba(108, 99, 255, 0.18), transparent 34%),
+          radial-gradient(circle at bottom left, rgba(0, 212, 170, 0.14), transparent 32%),
+          var(--bg);
+        color: var(--text);
+        font: 16px/1.5 system-ui, sans-serif;
+      }
+
+      main {
+        width: min(100%, 420px);
+        padding: 28px;
+        border-radius: 24px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        backdrop-filter: blur(18px);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 1.8rem;
+      }
+
+      p {
+        margin: 0 0 12px;
+        color: var(--muted);
+      }
+
+      strong {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Offline For Now</h1>
+      <p>
+        <strong>QubeSolve</strong> could not reach the network. If you already
+        opened the app once online, most of the shell is cached and you can keep
+        working after reconnecting.
+      </p>
+      <p>
+        Reopen the app when your connection returns to keep scanning and solving.
+      </p>
+    </main>
+  </body>
+</html>
