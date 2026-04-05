@@ -85,7 +85,6 @@ export default function HomePage() {
             <span className="home__pill home__pill--eyebrow">
               Camera-guided cube solving
             </span>
-            <span className="home__pill home__pill--status">Mobile alpha</span>
           </div>
 
           <h1 className="home__title">

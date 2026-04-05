@@ -221,6 +221,21 @@ export function useCamera(): UseCameraResult {
         video.muted = true;
         video.playsInline = true;
 
+        // Attempt to activate the device flashlight (torch) for better scanning quality
+        const track = nextStream.getVideoTracks()[0];
+        try {
+          if (track && typeof track.getCapabilities === 'function') {
+            const capabilities = track.getCapabilities() as any;
+            if (capabilities.torch) {
+              await track.applyConstraints({
+                advanced: [{ torch: true }]
+              } as any);
+            }
+          }
+        } catch {
+          // Ignore if torch activation fails or is unsupported by the platform
+        }
+
         try {
           await video.play();
         } catch {
