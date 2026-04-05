@@ -88,6 +88,14 @@
   color: #ffd1d1;
 }
 
+.review-page__repairNotice {
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(89, 196, 255, 0.22);
+  background: rgba(89, 196, 255, 0.08);
+  color: #cceeff;
+}
+
 @media (max-width: 720px) {
   .review-page__hero {
     flex-direction: column;

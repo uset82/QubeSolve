@@ -6,6 +6,8 @@ import {
   createSolvedCube,
   cubeStateToString,
   isSolved,
+  normalizeSequentialScanFaceColors,
+  rotateFaceColors,
 } from '../../src/lib/cubeState';
 
 describe('cubeState', () => {
@@ -40,5 +42,29 @@ describe('cubeState', () => {
   test('double turns behave consistently', () => {
     const state = applyMove(applyMove(createSolvedCube(), 'F2'), 'F2');
     expect(isSolved(state)).toBe(true);
+  });
+
+  test('normalizes sequential camera scans for the top and bottom faces', () => {
+    const scrambled = ['R', "U'", 'F2', 'L', 'D'].reduce(
+      (state, move) => applyMove(state, move),
+      createSolvedCube()
+    );
+    const scannedFaces = [
+      { face: 'U' as const, colors: rotateFaceColors(scrambled.U, -1) },
+      { face: 'D' as const, colors: rotateFaceColors(scrambled.D, 1) },
+      { face: 'F' as const, colors: [...scrambled.F] },
+      { face: 'B' as const, colors: [...scrambled.B] },
+      { face: 'L' as const, colors: [...scrambled.L] },
+      { face: 'R' as const, colors: [...scrambled.R] },
+    ];
+
+    const restored = createCubeStateFromScans(
+      scannedFaces.map((scan) => ({
+        face: scan.face,
+        colors: normalizeSequentialScanFaceColors(scan.face, scan.colors),
+      }))
+    );
+
+    expect(restored).toEqual(scrambled);
   });
 });

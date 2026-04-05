@@ -83,8 +83,8 @@ export const SCAN_INSTRUCTIONS: Record<Face, string> = {
   R: 'Rotate the cube 90° to the right.',
   B: 'Rotate the cube 90° to the right again.',
   L: 'Rotate the cube 90° to the right one more time.',
-  U: 'Tilt the cube forward so the white center faces you.',
-  D: 'Tilt the cube backward so the yellow center faces you.',
+  U: 'After the side scans, tip the cube forward so the white center faces you and green points down.',
+  D: 'From the white scan, keep rolling the cube backward past the starting position until the yellow center faces you.',
 };
 
 /**

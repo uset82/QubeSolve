@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import CubeNet2D from "@/components/CubeNet2D";
 import { useSolver } from "@/hooks/useSolver";
@@ -16,6 +16,7 @@ import {
   cloneCubeState,
   createCubeStateFromScans,
   cubeStateToString,
+  normalizeSequentialScanFaceColors,
   type CubeState,
 } from "@/lib/cubeState";
 import { loadScanSession, saveScanSession } from "@/lib/scanSession";
@@ -28,21 +29,54 @@ type SelectedFacelet = {
   index: number;
 };
 
-function createInitialCubeState(): CubeState | null {
+type InitialReviewState = {
+  cubeState: CubeState | null;
+  repairedLegacyOrientation: boolean;
+};
+
+function createInitialCubeState(): InitialReviewState {
   const session = loadScanSession();
   const scannedFaces = session?.scannedFaces ?? {};
 
   const hasAllFaces = SCAN_ORDER.every((face) => Array.isArray(scannedFaces[face]));
   if (!hasAllFaces) {
-    return null;
+    return {
+      cubeState: null,
+      repairedLegacyOrientation: false,
+    };
   }
 
-  return createCubeStateFromScans(
-    SCAN_ORDER.map((face) => ({
-      face,
-      colors: scannedFaces[face]!,
+  const rawScans = SCAN_ORDER.map((face) => ({
+    face,
+    colors: scannedFaces[face]!,
+  }));
+  const rawState = createCubeStateFromScans(rawScans);
+
+  if (validateCubeState(rawState).valid) {
+    return {
+      cubeState: rawState,
+      repairedLegacyOrientation: false,
+    };
+  }
+
+  const repairedState = createCubeStateFromScans(
+    rawScans.map((scan) => ({
+      face: scan.face,
+      colors: normalizeSequentialScanFaceColors(scan.face, scan.colors),
     }))
   );
+
+  if (validateCubeState(repairedState).valid) {
+    return {
+      cubeState: repairedState,
+      repairedLegacyOrientation: true,
+    };
+  }
+
+  return {
+    cubeState: rawState,
+    repairedLegacyOrientation: false,
+  };
 }
 
 function cubeStateToScannedFaces(cubeState: CubeState) {
@@ -70,10 +104,22 @@ function applyFaceletColor(
 export default function ReviewPage() {
   const router = useRouter();
   const { solve, isInitialized, isSolving, error: solverError } = useSolver();
-  const [cubeState, setCubeState] = useState<CubeState | null>(createInitialCubeState);
+  const [initialReviewState] = useState<InitialReviewState>(createInitialCubeState);
+  const [cubeState, setCubeState] = useState<CubeState | null>(
+    initialReviewState.cubeState
+  );
   const [selectedColor, setSelectedColor] = useState<CubeColor>("green");
   const [selectedFacelet, setSelectedFacelet] = useState<SelectedFacelet | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const repairedLegacyOrientation = initialReviewState.repairedLegacyOrientation;
+
+  useEffect(() => {
+    if (!repairedLegacyOrientation || !initialReviewState.cubeState) {
+      return;
+    }
+
+    saveScanSession(cubeStateToScannedFaces(initialReviewState.cubeState));
+  }, [initialReviewState, repairedLegacyOrientation]);
 
   const validation = useMemo(() => {
     if (!cubeState) {
@@ -246,6 +292,12 @@ export default function ReviewPage() {
 
         {(localError || solverError) && (
           <div className="review-page__solveError">{localError || solverError}</div>
+        )}
+
+        {repairedLegacyOrientation && (
+          <div className="review-page__repairNotice">
+            Adjusted the saved top and bottom scans to match the camera rotation flow.
+          </div>
         )}
 
         <div className="route-shell__actions">

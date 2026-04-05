@@ -35,6 +35,15 @@ export interface ScannedFace {
   colors: CubeColor[];
 }
 
+const SEQUENTIAL_SCAN_FACE_ROTATIONS_CW: Record<Face, number> = {
+  F: 0,
+  R: 0,
+  B: 0,
+  L: 0,
+  U: 1,
+  D: -1,
+};
+
 /** Map from CubeColor to Kociemba face letter */
 const COLOR_TO_FACE: Record<CubeColor, string> = {
   white: 'U',
@@ -160,16 +169,43 @@ export function getFlatFacelets(state: CubeState): CubeColor[] {
   return result;
 }
 
+export function rotateFaceColors<T>(
+  face: ReadonlyArray<T>,
+  quarterTurnsCW: number = 1
+): T[] {
+  if (face.length !== FACELETS_PER_FACE) {
+    throw new Error(
+      `Face has ${face.length} stickers, expected ${FACELETS_PER_FACE}`
+    );
+  }
+
+  let rotated = [...face];
+  const turns = ((quarterTurnsCW % 4) + 4) % 4;
+
+  for (let turn = 0; turn < turns; turn += 1) {
+    rotated = [
+      rotated[6], rotated[3], rotated[0],
+      rotated[7], rotated[4], rotated[1],
+      rotated[8], rotated[5], rotated[2],
+    ];
+  }
+
+  return rotated;
+}
+
+export function normalizeSequentialScanFaceColors(
+  face: Face,
+  colors: ReadonlyArray<CubeColor>
+): CubeColor[] {
+  return rotateFaceColors(colors, SEQUENTIAL_SCAN_FACE_ROTATIONS_CW[face]) as CubeColor[];
+}
+
 /**
  * Rotate a face array 90° clockwise.
  * Indices: 0 1 2 / 3 4 5 / 6 7 8 → 6 3 0 / 7 4 1 / 8 5 2
  */
 function rotateFaceCW(face: FaceColors): FaceColors {
-  return [
-    face[6], face[3], face[0],
-    face[7], face[4], face[1],
-    face[8], face[5], face[2],
-  ];
+  return rotateFaceColors(face) as FaceColors;
 }
 
 /**
