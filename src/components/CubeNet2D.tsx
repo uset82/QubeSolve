@@ -13,6 +13,11 @@ type FaceletSelection = {
   index: number;
 };
 
+export type SuspectFacelet = {
+  face: Face;
+  index: number;
+};
+
 export type CubeNetState = Record<Face, ReadonlyArray<CubeColor | null>>;
 
 interface CubeNet2DProps {
@@ -20,6 +25,7 @@ interface CubeNet2DProps {
   editable?: boolean;
   selectedColor?: CubeColor | null;
   selectedFacelet?: FaceletSelection | null;
+  suspectFacelets?: SuspectFacelet[];
   onSelectColor?: (color: CubeColor) => void;
   onFaceletClick?: (face: Face, index: number) => void;
 }
@@ -42,6 +48,7 @@ export default function CubeNet2D({
   editable = false,
   selectedColor = null,
   selectedFacelet = null,
+  suspectFacelets = [],
   onSelectColor,
   onFaceletClick,
 }: CubeNet2DProps) {
@@ -79,10 +86,14 @@ export default function CubeNet2D({
                 const isCenter = index === 4;
                 const isSelected =
                   selectedFacelet?.face === face && selectedFacelet.index === index;
+                const isSuspect = suspectFacelets.some(
+                  (sf) => sf.face === face && sf.index === index
+                );
                 const cellClassName = [
                   styles.cell,
                   editable && !isCenter ? styles.cellEditable : styles.cellLocked,
                   isSelected ? styles.cellSelected : "",
+                  isSuspect ? styles.cellSuspect : "",
                 ]
                   .filter(Boolean)
                   .join(" ");

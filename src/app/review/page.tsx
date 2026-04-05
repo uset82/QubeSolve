@@ -85,6 +85,7 @@ export default function ReviewPage() {
   const [selectedColor, setSelectedColor] = useState<CubeColor>("green");
   const [selectedFacelet, setSelectedFacelet] = useState<SelectedFacelet | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showErrors, setShowErrors] = useState(true);
   const canonicalCubeState = useMemo(
     () => (cubeState ? convertUiCubeStateToCanonical(cubeState) : null),
     [cubeState]
@@ -206,14 +207,17 @@ export default function ReviewPage() {
         </div>
 
         {cubeState ? (
-          <CubeNet2D
-            cubeState={cubeState}
-            editable
-            selectedColor={selectedColor}
-            selectedFacelet={selectedFacelet}
-            onSelectColor={setSelectedColor}
-            onFaceletClick={handleFaceletClick}
-          />
+          <div className="review-page__netContainer">
+            <CubeNet2D
+              cubeState={cubeState}
+              editable
+              selectedColor={selectedColor}
+              selectedFacelet={selectedFacelet}
+              suspectFacelets={validation.suspectFacelets}
+              onSelectColor={setSelectedColor}
+              onFaceletClick={handleFaceletClick}
+            />
+          </div>
         ) : (
           <div className="review-page__empty">
             <p className="route-shell__copy">
@@ -243,13 +247,22 @@ export default function ReviewPage() {
           className={`review-page__validation${
             validation.valid ? " review-page__validation--valid" : " review-page__validation--invalid"
           }`}
+          onClick={() => !validation.valid && setShowErrors(!showErrors)}
+          style={{ cursor: validation.valid ? 'default' : 'pointer' }}
         >
-          {validation.valid
-            ? "Cube state looks valid."
-            : `${validation.errors.length} issue${validation.errors.length === 1 ? "" : "s"} found.`}
+          <span>
+            {validation.valid
+              ? "Cube state looks valid."
+              : `${validation.errors.length} issue${validation.errors.length === 1 ? "" : "s"} found.`}
+          </span>
+          {!validation.valid && (
+            <span className="review-page__chevron">
+              {showErrors ? "▲" : "▼"}
+            </span>
+          )}
         </div>
 
-        {!validation.valid && (
+        {!validation.valid && showErrors && (
           <ul className="review-page__errorList">
             {validation.errors.map((item, index) => (
               <li key={`${item.type}-${index}`} className="review-page__errorItem">
@@ -265,36 +278,42 @@ export default function ReviewPage() {
             <code className="review-page__solverCode">{facelets}</code>
           </div>
         )}
-
-        {(localError || solverError) && (
-          <div className="review-page__solveError">{localError || solverError}</div>
-        )}
-
-        <div className="route-shell__actions">
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={handleSolve}
-            disabled={!cubeState || !validation.valid || !facelets || isSolving}
-          >
-            {isSolving
-              ? "Solving..."
-              : isInitialized
-                ? "Solve It"
-                : "Initialize Solver"}
-          </button>
-          <Link href="/scan" className="button button--secondary">
-            Back to scan
-          </Link>
-          <button
-            type="button"
-            className="button button--ghost"
-            onClick={handleStartOver}
-          >
-            Start over
-          </button>
-        </div>
       </section>
+
+      <footer className="review-page__footer">
+        <div className="review-page__footerContent">
+          {(localError || solverError) && (
+            <div className="review-page__solveError review-page__solveError--sticky">
+              {localError || solverError}
+            </div>
+          )}
+
+          <div className="route-shell__actions">
+            <button
+              type="button"
+              className="button button--primary"
+              onClick={handleSolve}
+              disabled={!cubeState || !validation.valid || !facelets || isSolving}
+            >
+              {isSolving
+                ? "Solving..."
+                : isInitialized
+                  ? "Solve It"
+                  : "Initialize Solver"}
+            </button>
+            <Link href="/scan" className="button button--secondary">
+              Back to scan
+            </Link>
+            <button
+              type="button"
+              className="button button--ghost"
+              onClick={handleStartOver}
+            >
+              Start over
+            </button>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

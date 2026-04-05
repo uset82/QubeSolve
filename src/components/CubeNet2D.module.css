@@ -88,6 +88,25 @@
     0 0 0 4px rgba(108, 99, 255, 0.3);
 }
 
+.cellSuspect {
+  border-color: #ff4d4d;
+  box-shadow: 
+    0 0 0 2px rgba(255, 77, 77, 0.2),
+    0 0 12px rgba(255, 77, 77, 0.3);
+  animation: pulseSuspect 2s infinite ease-in-out;
+}
+
+@keyframes pulseSuspect {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;

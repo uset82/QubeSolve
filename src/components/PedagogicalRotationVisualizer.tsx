@@ -20,25 +20,35 @@ const POLYGONS = {
 // Arrow paths indicating the rotation of the PHYSICAL cube in space
 const CUBE_ROTATION_ARROWS: Record<Face, string | null> = {
   F: null, // Initial face, no flip
-  R: 'M 85,55 Q 50,85 15,55', // Swipe right-to-left
-  B: 'M 85,55 Q 50,85 15,55', // Swipe right-to-left
-  L: 'M 85,55 Q 50,85 15,55', // Swipe right-to-left
+  R: 'M 15,55 Q 50,85 85,55', // Swipe Left-to-Right (to turn face right) - Corrected to swipe direction that makes RIGHT come to FRONT
+  B: 'M 15,55 Q 50,85 85,55', // Swipe Left-to-Right
+  L: 'M 15,55 Q 50,85 85,55', // Swipe Left-to-Right
   U: 'M 50,15 Q 85,50 50,85', // Tilt downward (Top to Front)
   D: 'M 50,90 Q 15,50 50,15', // Tip upward (Bottom to Front)
 };
 
 const KID_FRIENDLY_SCANS: Record<Face, string> = {
   F: 'Hold Green in front, White on top.',
-  R: 'Flip the cube LEFT so Red is in front.',
-  B: 'Flip LEFT again so Blue is front.',
-  L: 'Flip LEFT again so Orange is front.',
-  U: 'Tip the cube DOWN so White is front.',
-  D: 'Tip the cube UP twice so Yellow is front.',
+  R: 'Rotate right to the RED face.',
+  B: 'Rotate right again to the BLUE face.',
+  L: 'Rotate right again to the ORANGE face.',
+  U: 'Tip the cube forward to the WHITE face.',
+  D: 'Roll the cube backward twice to the YELLOW face.',
 };
 
 export default function PedagogicalRotationVisualizer({ currentFace }: RotationVisualizerProps) {
   const activeColor = COLOR_HEX_MAP[FACE_CENTER_COLORS[currentFace]];
   const arrowPath = CUBE_ROTATION_ARROWS[currentFace];
+
+  const getPreviousFace = (face: Face): string | null => {
+    if (face === 'R') return 'from Green';
+    if (face === 'B') return 'from Red';
+    if (face === 'L') return 'from Blue';
+    if (face === 'U') return 'from Green';
+    if (face === 'D') return 'from White';
+    return null;
+  };
+  const fromLabel = getPreviousFace(currentFace);
   
   // Highlighting:
   // For the camera scanner rotation, we want to pulse the "target" color
@@ -92,6 +102,7 @@ export default function PedagogicalRotationVisualizer({ currentFace }: RotationV
           {FACE_CENTER_COLORS[currentFace].toUpperCase()}
         </div>
         <p className={styles.kidFriendlyText}>
+          {fromLabel && <span className={styles.fromLabel}>{fromLabel} &rarr; </span>} 
           {KID_FRIENDLY_SCANS[currentFace]}
         </p>
       </div>
