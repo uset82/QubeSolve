@@ -72,7 +72,7 @@ export default function RootLayout({
       lang="en"
       className={`${outfit.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
-      <body>
+      <body suppressHydrationWarning>
         <PwaRegistrar />
         {children}
       </body>

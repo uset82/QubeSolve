@@ -25,16 +25,11 @@ export default function StepGuide({
             ? "Solved"
             : `Step ${Math.min(currentStep + 1, totalSteps)} of ${totalSteps}`}
       </p>
-      {move ? (
-        <>
-          <div className={styles.notation}>{move.notation}</div>
-          <p className={styles.label}>{move.label}</p>
-        </>
-      ) : (
+      {!move && (
         <p className={styles.empty}>
           {isAlreadySolved
             ? "No moves are required for this cube state."
-            : "All moves completed. The cube should now be solved."}
+            : "All moves completed. The cube should now be solved. Great job!"}
         </p>
       )}
     </section>
