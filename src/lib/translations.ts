@@ -10,6 +10,14 @@ export interface AssistantStrings {
   allDone: string;
   rotateHelp: (face: Face) => string;
   movePrompt: (move: string) => string;
+  diagnosticReasons: Record<string, string>;
+  repairButton: string;
+  repairLoading: string;
+  repairModalTitle: string;
+  repairModalIntro: string;
+  repairApply: string;
+  repairCancel: string;
+  repairSuggestion: (face: string, index: number, from: string, to: string, reason: string) => string;
 }
 
 export const TRANSLATIONS: Record<AssistantLanguage, AssistantStrings> = {
@@ -28,6 +36,20 @@ export const TRANSLATIONS: Record<AssistantLanguage, AssistantStrings> = {
       return "";
     },
     movePrompt: (move) => `Next move: ${move}`,
+    diagnosticReasons: {
+      opposite_faces: "Opposite colors (like Red/Orange) cannot be on the same piece.",
+      duplicate_faces: "A piece cannot have the same color twice.",
+      impossible_colors: "This sticker combination doesn't exist on a standard cube.",
+      impossible_combination: "This specific combination of colors is mathematically impossible.",
+    },
+    repairButton: "AI Repair Assist",
+    repairLoading: "AI is analyzing your cube...",
+    repairModalTitle: "AI Repair Suggestions",
+    repairModalIntro: "The AI found the following likely scan errors. Review and apply to fix your cube:",
+    repairApply: "Apply Fixes",
+    repairCancel: "Cancel",
+    repairSuggestion: (face, index, from, to, reason) => 
+      `Change ${face} sticker ${index + 1} from ${from} to ${to}. (${reason})`,
   },
   es: {
     readyPrompt: (face) => {
@@ -47,6 +69,20 @@ export const TRANSLATIONS: Record<AssistantLanguage, AssistantStrings> = {
       return "";
     },
     movePrompt: (move) => `Siguiente movimiento: ${move}`,
+    diagnosticReasons: {
+      opposite_faces: "Colores opuestos (como Rojo/Naranja) no pueden estar en la misma pieza.",
+      duplicate_faces: "Una pieza no puede tener el mismo color dos veces.",
+      impossible_colors: "Esta combinación de colores no existe en un cubo estándar.",
+      impossible_combination: "Esta combinación específica es matemáticamente imposible.",
+    },
+    repairButton: "Asistente de Reparación AI",
+    repairLoading: "La IA está analizando tu cubo...",
+    repairModalTitle: "Sugerencias de Reparación AI",
+    repairModalIntro: "La IA encontró los siguientes errores probables. Revisa y aplica para corregir tu cubo:",
+    repairApply: "Aplicar Correcciones",
+    repairCancel: "Cancelar",
+    repairSuggestion: (face, index, from, to, reason) => 
+      `Cambiar pegatina ${index + 1} de la cara ${face} de ${from} a ${to}. (${reason})`,
   },
 };
 

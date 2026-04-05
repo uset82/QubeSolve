@@ -31,6 +31,44 @@ const CUBE_FACE_SCHEMA = {
   required: ["colors", "confidence", "notes"],
 } as const;
 
+const CUBE_REPAIR_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    suggestedChanges: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          face: { type: "string", enum: ["U", "D", "F", "B", "L", "R"] },
+          index: { type: "number", minimum: 0, maximum: 8 },
+          oldColor: { type: "string", enum: CUBE_COLORS },
+          newColor: { type: "string", enum: CUBE_COLORS },
+          reason: { type: "string" },
+        },
+        required: ["face", "index", "oldColor", "newColor", "reason"],
+      },
+    },
+    explanation: { type: "string" },
+  },
+  required: ["suggestedChanges", "explanation"],
+} as const;
+
+export interface CubeRepairSuggestion {
+  face: Face;
+  index: number;
+  oldColor: CubeColor;
+  newColor: CubeColor;
+  reason: string;
+}
+
+export interface CubeRepairResult {
+  suggestedChanges: CubeRepairSuggestion[];
+  explanation: string;
+  model: string;
+}
+
 export interface CubeVisionAnalysis {
   requestedFace: Face | null;
   colors: CubeColor[];
@@ -328,6 +366,73 @@ export async function analyzeCubeFaceWithOpenRouter({
     colors: analysis.colors,
     confidence: analysis.confidence,
     notes: analysis.notes,
+    model: response.model,
+  };
+}
+
+export async function repairCubeStateWithOpenRouter(
+  cubeState: Record<Face, CubeColor[]>,
+  validationErrors: string[]
+): Promise<CubeRepairResult> {
+  const client = getOpenRouterClient();
+  const model = getOpenRouterModel();
+
+  const stateString = Object.entries(cubeState)
+    .map(([face, colors]) => `${face}: ${colors.join(", ")}`)
+    .join("\n");
+
+  const systemPrompt = [
+    "You are a Rubik's Cube expert assistant.",
+    "The user has a cube scan that is physically illegal (impossible color combinations or counts).",
+    "Analyze the provided cube state and validation errors.",
+    "Suggest the MINIMUM number of sticker color changes to make the cube physically legal.",
+    "Prioritize changing colors that are likely misread (e.g., Red/Orange, White/Yellow).",
+    "Ensure each face has exactly 9 stickers of each color in the final state.",
+    "Return JSON only.",
+  ].join(" ");
+
+  const userPrompt = [
+    "Current Cube State:",
+    stateString,
+    "\nValidation Errors:",
+    validationErrors.join("\n"),
+    "\nProvide a list of suggested changes to make this cube legal.",
+  ].join("\n");
+
+  const response = await client.chat.send({
+    chatRequest: {
+      model,
+      stream: false,
+      temperature: 0.2,
+      responseFormat: {
+        type: "json_schema",
+        jsonSchema: {
+          name: "cube_repair",
+          description: "Suggestions to fix an illegal Rubik's cube scan.",
+          schema: CUBE_REPAIR_SCHEMA,
+          strict: true,
+        },
+      },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    },
+  });
+
+  const rawContent = extractTextContent(response.choices[0]?.message.content);
+  if (!rawContent) {
+    throw new Error("AI repair returned an empty response.");
+  }
+
+  const parsed = JSON.parse(stripCodeFence(rawContent)) as {
+    suggestedChanges: CubeRepairSuggestion[];
+    explanation: string;
+  };
+
+  return {
+    suggestedChanges: parsed.suggestedChanges,
+    explanation: parsed.explanation,
     model: response.model,
   };
 }

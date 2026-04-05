@@ -22,6 +22,9 @@ import {
 import { clearScanSession, loadScanSession, saveScanSession } from "@/lib/scanSession";
 import { clearSolveSession, saveSolveSession } from "@/lib/solveSession";
 import { validateCubeState } from "@/lib/validation";
+import { useSpeech } from "@/hooks/useSpeech";
+import { TRANSLATIONS } from "@/lib/translations";
+import { requestRepairAssist } from "@/lib/repairClient";
 import "@/styles/review.css";
 
 type SelectedFacelet = {
@@ -86,6 +89,11 @@ export default function ReviewPage() {
   const [selectedFacelet, setSelectedFacelet] = useState<SelectedFacelet | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(true);
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState<any | null>(null);
+  const { language } = useSpeech();
+  const t = TRANSLATIONS[language];
+
   const canonicalCubeState = useMemo(
     () => (cubeState ? convertUiCubeStateToCanonical(cubeState) : null),
     [cubeState]
@@ -115,6 +123,46 @@ export default function ReviewPage() {
 
     return cubeStateToString(canonicalCubeState);
   }, [canonicalCubeState, validation.valid]);
+
+  const selectedDiagnostic = useMemo(() => {
+    if (!selectedFacelet) return null;
+    return validation.suspectFacelets.find(
+      (s) => s.face === selectedFacelet.face && s.index === selectedFacelet.index
+    );
+  }, [selectedFacelet, validation.suspectFacelets]);
+
+  const handleAIRepair = async () => {
+    if (!cubeState || validation.valid) return;
+
+    setIsRepairing(true);
+    setLocalError(null);
+
+    try {
+      const result = await requestRepairAssist(
+        cubeState,
+        validation.errors.map((e) => e.message)
+      );
+      setRepairResult(result);
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : "AI repair failed.");
+    } finally {
+      setIsRepairing(false);
+    }
+  };
+
+  const applyRepair = () => {
+    if (!repairResult || !cubeState) return;
+
+    let nextState = cloneCubeState(cubeState);
+    for (const change of repairResult.suggestedChanges) {
+      const face = change.face as Face;
+      nextState[face][change.index] = change.newColor as CubeColor;
+    }
+
+    setCubeState(nextState);
+    setRepairResult(null);
+    saveScanSession(cubeStateToScannedFaces(nextState));
+  };
 
   const handleFaceletClick = (face: Face, index: number) => {
     if (!cubeState || index === 4) {
@@ -233,6 +281,16 @@ export default function ReviewPage() {
             </div>
           </div>
         )}
+
+        {selectedDiagnostic && (
+          <div className="review-page__diagnostic">
+            <div className="review-page__diagnosticHeader">
+              <strong>Diagnostic Tip</strong>
+              <button onClick={() => setSelectedFacelet(null)}>×</button>
+            </div>
+            <p>{t.diagnosticReasons[selectedDiagnostic.reason || ""] || "Possible scan error at this position."}</p>
+          </div>
+        )}
       </section>
 
       <section className="route-shell__panel">
@@ -261,6 +319,23 @@ export default function ReviewPage() {
             </span>
           )}
         </div>
+
+        {!validation.valid && (
+          <button 
+            className="button button--secondary review-page__repairButton"
+            onClick={handleAIRepair}
+            disabled={isRepairing}
+          >
+            {isRepairing ? (
+              <>
+                <span className="spinner"></span>
+                {t.repairLoading}
+              </>
+            ) : (
+              t.repairButton
+            )}
+          </button>
+        )}
 
         {!validation.valid && showErrors && (
           <ul className="review-page__errorList">
@@ -314,6 +389,32 @@ export default function ReviewPage() {
           </div>
         </div>
       </footer>
+
+      {repairResult && (
+        <div className="repair-modal">
+          <div className="repair-modal__container glass">
+            <h2>{t.repairModalTitle}</h2>
+            <p className="route-shell__copy">{t.repairModalIntro}</p>
+            
+            <ul className="repair-modal__list">
+              {repairResult.suggestedChanges.map((change: any, idx: number) => (
+                <li key={idx}>
+                  {t.repairSuggestion(change.face, change.index, change.oldColor, change.newColor, change.reason)}
+                </li>
+              ))}
+            </ul>
+
+            <div className="repair-modal__actions">
+              <button className="button button--primary" onClick={applyRepair}>
+                {t.repairApply}
+              </button>
+              <button className="button button--ghost" onClick={() => setRepairResult(null)}>
+                {t.repairCancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

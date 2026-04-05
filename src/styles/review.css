@@ -133,9 +133,126 @@
   font-size: 0.88rem;
 }
 
+.review-page__diagnostic {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 172, 51, 0.12);
+  border: 1px solid rgba(255, 172, 51, 0.3);
+  color: #ffe8cc;
+  animation: slideDown 0.3s ease-out;
+}
+
+.review-page__diagnosticHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.review-page__diagnosticHeader button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 var(--space-xs);
+  opacity: 0.6;
+}
+
+.review-page__repairButton {
+  width: 100%;
+  margin-top: var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.2), rgba(0, 212, 170, 0.2));
+  border-color: rgba(108, 99, 255, 0.3);
+  font-weight: 700;
+}
+
+/* Repair Modal */
+.repair-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.repair-modal__container {
+  width: 100%;
+  max-width: 440px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xl);
+  border-radius: 2rem;
+  background: rgba(22, 22, 34, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+  overflow-y: auto;
+}
+
+.repair-modal__list {
+  margin: var(--space-lg) 0;
+  display: grid;
+  gap: var(--space-md);
+}
+
+.repair-modal__list li {
+  padding: var(--space-md);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-lg);
+  border-left: 4px solid var(--accent-primary);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.repair-modal__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (max-width: 720px) {
   .review-page__hero {
     flex-direction: column;
     align-items: stretch;
   }
 }
+

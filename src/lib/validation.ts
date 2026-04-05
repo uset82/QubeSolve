@@ -24,6 +24,7 @@ export interface SuspectFacelet {
   face: Face;
   faceletIndex: number;
   index: number;
+  reason?: string;
 }
 
 /** Validation result */
@@ -40,8 +41,8 @@ interface DecodedCubePieces {
   co: number[];
   ep: number[];
   eo: number[];
-  invalidCornerPositions: number[];
-  invalidEdgePositions: number[];
+  invalidCorners: InvalidPiece[];
+  invalidEdges: InvalidPiece[];
 }
 
 const CORNER_FACELETS: number[][] = [
@@ -110,26 +111,29 @@ function faceletStringIndexToFacelet(faceletIndex: number): SuspectFacelet {
 }
 
 function collectSuspectFacelets(
-  invalidCornerPositions: number[],
-  invalidEdgePositions: number[]
+  invalidCorners: InvalidPiece[],
+  invalidEdges: InvalidPiece[]
 ): SuspectFacelet[] {
-  const faceletIndices = new Set<number>();
+  const faceletToReason = new Map<number, string>();
 
-  for (const position of invalidCornerPositions) {
+  for (const { position, reason } of invalidCorners) {
     for (const faceletIndex of CORNER_FACELETS[position] ?? []) {
-      faceletIndices.add(faceletIndex);
+      faceletToReason.set(faceletIndex, reason);
     }
   }
 
-  for (const position of invalidEdgePositions) {
+  for (const { position, reason } of invalidEdges) {
     for (const faceletIndex of EDGE_FACELETS[position] ?? []) {
-      faceletIndices.add(faceletIndex);
+      faceletToReason.set(faceletIndex, reason);
     }
   }
 
-  return [...faceletIndices]
+  return [...faceletToReason.keys()]
     .sort((left, right) => left - right)
-    .map(faceletStringIndexToFacelet);
+    .map((idx) => ({
+      ...faceletStringIndexToFacelet(idx),
+      reason: faceletToReason.get(idx),
+    }));
 }
 
 function permutationParity(values: number[]): number {
@@ -146,39 +150,71 @@ function permutationParity(values: number[]): number {
   return inversions % 2;
 }
 
+interface InvalidPiece {
+  position: number;
+  reason: string;
+}
+
+interface DecodedCubePieces {
+  cp: number[];
+  co: number[];
+  ep: number[];
+  eo: number[];
+  invalidCorners: InvalidPiece[];
+  invalidEdges: InvalidPiece[];
+}
+
 function decodeCubePieces(facelets: string): DecodedCubePieces {
   const cp: number[] = [];
   const co: number[] = [];
   const ep: number[] = [];
   const eo: number[] = [];
-  const invalidCornerPositions: number[] = [];
-  const invalidEdgePositions: number[] = [];
+  const invalidCorners: InvalidPiece[] = [];
+  const invalidEdges: InvalidPiece[] = [];
+
+  const OPPOSITE_FACES: Record<FaceLetter, FaceLetter> = {
+    'U': 'D', 'D': 'U',
+    'L': 'R', 'R': 'L',
+    'F': 'B', 'B': 'F',
+  };
 
   for (let position = 0; position < CORNER_FACELETS.length; position += 1) {
-    let orientation = 0;
+    const stickers = CORNER_FACELETS[position].map(idx => facelets[idx] as FaceLetter);
+    
+    // Check for opposites on corner
+    if (stickers[0] === OPPOSITE_FACES[stickers[1]] || stickers[0] === OPPOSITE_FACES[stickers[2]] || stickers[1] === OPPOSITE_FACES[stickers[2]]) {
+      invalidCorners.push({ position, reason: 'opposite_faces' });
+      continue;
+    }
 
+    // Check for duplicate faces on corner
+    if (new Set(stickers).size < 3) {
+      invalidCorners.push({ position, reason: 'duplicate_faces' });
+      continue;
+    }
+
+    let orientation = 0;
     while (orientation < 3) {
-      const sticker = facelets[CORNER_FACELETS[position][orientation]];
+      const sticker = stickers[orientation];
       if (sticker === 'U' || sticker === 'D') {
         break;
       }
-
       orientation += 1;
     }
 
     if (orientation === 3) {
-      invalidCornerPositions.push(position);
+      invalidCorners.push({ position, reason: 'impossible_colors' });
       continue;
     }
 
-    const color1 = facelets[CORNER_FACELETS[position][(orientation + 1) % 3]] as FaceLetter;
-    const color2 = facelets[CORNER_FACELETS[position][(orientation + 2) % 3]] as FaceLetter;
+    const color1 = stickers[(orientation + 1) % 3];
+    const color2 = stickers[(orientation + 2) % 3];
     const pieceIndex = CORNER_COLORS.findIndex(
       (pieceColors) => color1 === pieceColors[1] && color2 === pieceColors[2]
     );
 
     if (pieceIndex === -1) {
-      invalidCornerPositions.push(position);
+      invalidCorners.push({ position, reason: 'impossible_combination' });
       continue;
     }
 
@@ -187,9 +223,19 @@ function decodeCubePieces(facelets: string): DecodedCubePieces {
   }
 
   for (let position = 0; position < EDGE_FACELETS.length; position += 1) {
-    const [a, b] = EDGE_FACELETS[position];
-    const stickerA = facelets[a] as FaceLetter;
-    const stickerB = facelets[b] as FaceLetter;
+    const stickers = EDGE_FACELETS[position].map(idx => facelets[idx] as FaceLetter);
+    
+    // Check for opposites or duplicates on edge
+    if (stickers[0] === stickers[1]) {
+      invalidEdges.push({ position, reason: 'duplicate_faces' });
+      continue;
+    }
+    if (stickers[0] === OPPOSITE_FACES[stickers[1]]) {
+      invalidEdges.push({ position, reason: 'opposite_faces' });
+      continue;
+    }
+
+    const [stickerA, stickerB] = stickers;
     const directIndex = EDGE_COLORS.findIndex(
       (pieceColors) => stickerA === pieceColors[0] && stickerB === pieceColors[1]
     );
@@ -205,7 +251,7 @@ function decodeCubePieces(facelets: string): DecodedCubePieces {
     );
 
     if (flippedIndex === -1) {
-      invalidEdgePositions.push(position);
+      invalidEdges.push({ position, reason: 'impossible_colors' });
       continue;
     }
 
@@ -218,8 +264,8 @@ function decodeCubePieces(facelets: string): DecodedCubePieces {
     co,
     ep,
     eo,
-    invalidCornerPositions,
-    invalidEdgePositions,
+    invalidCorners,
+    invalidEdges,
   };
 }
 
@@ -277,22 +323,22 @@ export function validateCubeState(state: CubeState): ValidationResult {
     co,
     ep,
     eo,
-    invalidCornerPositions,
-    invalidEdgePositions,
+    invalidCorners,
+    invalidEdges,
   } = decodeCubePieces(facelets);
   const suspectFacelets = collectSuspectFacelets(
-    invalidCornerPositions,
-    invalidEdgePositions
+    invalidCorners,
+    invalidEdges
   );
 
-  if (invalidCornerPositions.length > 0) {
+  if (invalidCorners.length > 0) {
     errors.push({
       type: 'duplicate_piece',
       message: 'Found an impossible corner piece. One or more corner stickers do not form a legal 3-color combination.',
     });
   }
 
-  if (invalidEdgePositions.length > 0) {
+  if (invalidEdges.length > 0) {
     errors.push({
       type: 'duplicate_piece',
       message: 'Found an impossible edge piece. One or more edge stickers do not form a legal 2-color combination.',
