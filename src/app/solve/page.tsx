@@ -22,6 +22,8 @@ import {
   type MoveData,
 } from '@/lib/moveParser';
 import { loadSolveSession, type SolveSession } from '@/lib/solveSession';
+import { useSpeech } from '@/hooks/useSpeech';
+import { TRANSLATIONS, getMoveSpokenName } from '@/lib/translations';
 import '@/styles/solve.css';
 
 const CubeViewer3D = dynamic(() => import('@/components/CubeViewer3D'), {
@@ -67,6 +69,8 @@ export default function SolvePage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [activeCommand, setActiveCommand] = useState<SolveAnimationCommand | null>(null);
   const commandIdRef = useRef(0);
+  const { speak, language, toggleLanguage, isEnabled, toggleEnabled } = useSpeech();
+  const t = TRANSLATIONS[language];
 
   const parsedMoves = useMemo(() => {
     if (!session) {
@@ -109,10 +113,25 @@ export default function SolvePage() {
     totalSteps === 0
       ? 'This cube was already solved.'
       : activeCommand
-        ? `Animating ${activeCommand.move.notation}. Keep the physical cube aligned with the preview.`
+        ? `Animating ${activeCommand.move.notation}.`
         : isComplete
-          ? 'Final move applied. Redirecting to the celebration screen.'
+          ? 'Cube Solved! Congratulations!'
           : `${remainingMoves} move${remainingMoves === 1 ? '' : 's'} remaining.`;
+
+  // Voice feedback for steps
+  useEffect(() => {
+    if (activeCommand || totalSteps === 0) return;
+    
+    if (isComplete) {
+      speak(t.allDone);
+      return;
+    }
+
+    if (currentMove) {
+      const moveName = getMoveSpokenName(currentMove.notation, language);
+      speak(t.movePrompt(moveName));
+    }
+  }, [currentStep, isComplete, activeCommand, currentMove, speak, t, totalSteps, language]);
 
   useEffect(() => {
     if (!session || !isComplete) {
@@ -211,6 +230,22 @@ export default function SolvePage() {
         <div>
           <p className="route-shell__eyebrow">Phase 2 · Guided Solve</p>
           <h1 className="route-shell__title">Follow The Moves</h1>
+        </div>
+
+        <div className="assistant-toggles">
+          <button 
+            className={`assistant-toggle ${isEnabled ? 'assistant-toggle--active' : ''}`}
+            onClick={toggleEnabled}
+            title={isEnabled ? "Mute" : "Unmute"}
+          >
+            {isEnabled ? "🔊" : "🔇"}
+          </button>
+          <button 
+            className="assistant-toggle assistant-toggle--lang"
+            onClick={toggleLanguage}
+          >
+            {language === "en" ? "EN" : "ES"}
+          </button>
         </div>
       </header>
 

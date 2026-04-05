@@ -38,10 +38,10 @@ import {
   subscribeToScanSession,
 } from "@/lib/scanSession";
 import { clearSolveSession } from "@/lib/solveSession";
-import {
-  requestVisionAssist,
-  type VisionAssistResult,
-} from "@/lib/visionClient";
+import { type VisionAssistResult, requestVisionAssist } from "@/lib/visionClient";
+import { TRANSLATIONS } from "@/lib/translations";
+import { useSpeech } from "@/hooks/useSpeech";
+import ScanAssistantOverlay from "@/components/ScanAssistantOverlay";
 import "@/styles/scan.css";
 
 const AUTO_CAPTURE_HOLD_MS = 900;
@@ -162,6 +162,9 @@ export default function ScanPage() {
   const [manualStickerOverrides, setManualStickerOverrides] = useState<
     Array<CubeColor | null>
   >(createManualStickerOverrides);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const { speak, language, toggleLanguage, isEnabled, toggleEnabled } = useSpeech();
+  const t = TRANSLATIONS[language];
 
   const currentFace = SCAN_ORDER[currentFaceIndex];
   const expectedCenterColor = FACE_CENTER_COLORS[currentFace];
@@ -252,7 +255,8 @@ export default function ScanPage() {
 
   useEffect(() => {
     resetTransientCaptureState();
-  }, [currentFace, resetTransientCaptureState]);
+    speak(t.readyPrompt(currentFace));
+  }, [currentFace, resetTransientCaptureState, speak, t]);
 
   useEffect(() => {
     if (!freshStartRequested || didApplyFreshStartRef.current) {
@@ -301,6 +305,17 @@ export default function ScanPage() {
     currentFace,
   ]);
 
+  // Voice feedback for mistakes
+  useEffect(() => {
+    if (!localDetectedColors) return;
+    if (!localHasExpectedCenter && localDetectedColors[4]) {
+      const detectedFace = CENTER_COLOR_TO_FACE[localDetectedColors[4]];
+      if (detectedFace) {
+        speak(t.wrongFaceWarning(detectedFace, currentFace));
+      }
+    }
+  }, [localHasExpectedCenter, localDetectedColors, currentFace, speak, t]);
+
   const statusClassName = visionAssist
     ? hasExpectedCenter
       ? "scan-page__status scan-page__status--ready"
@@ -346,13 +361,19 @@ export default function ScanPage() {
     const nextIndex = findNextFaceIndex(nextScannedFaces);
     const everythingCaptured = SCAN_ORDER.every((face) => nextScannedFaces[face]);
 
-    if (everythingCaptured) {
-      router.push("/review");
-      return;
-    }
-
     setManualFaceIndex(nextIndex);
-  }, [router, scannedFaces]);
+    
+    // Interstitial Success state
+    setShowSuccessOverlay(true);
+    speak(t.captureSuccess(targetFace, nextIndex !== -1 ? SCAN_ORDER[nextIndex] : null));
+    
+    setTimeout(() => {
+      setShowSuccessOverlay(false);
+      if (everythingCaptured) {
+        router.push("/review");
+      }
+    }, 1800);
+  }, [router, scannedFaces, speak, t]);
 
   const handleConfirmFace = () => {
     if (!canConfirm || !detectedColors) {
@@ -547,6 +568,22 @@ export default function ScanPage() {
             <p className="route-shell__eyebrow">Phase 1 · Camera Scanner</p>
             <h1 className="route-shell__title">Scan Your Cube</h1>
           </div>
+          
+          <div className="assistant-toggles">
+            <button 
+              className={`assistant-toggle ${isEnabled ? 'assistant-toggle--active' : ''}`}
+              onClick={toggleEnabled}
+              title={isEnabled ? "Mute" : "Unmute"}
+            >
+              {isEnabled ? "🔊" : "🔇"}
+            </button>
+            <button 
+              className="assistant-toggle assistant-toggle--lang"
+              onClick={toggleLanguage}
+            >
+              {language === "en" ? "EN" : "ES"}
+            </button>
+          </div>
         </header>
 
         <section className="route-shell__panel scan-page__panel">
@@ -564,28 +601,44 @@ export default function ScanPage() {
 
           <PedagogicalRotationVisualizer currentFace={currentFace} />
 
-          <CameraScanner
-            ref={scannerRef}
-            activeFace={currentFace}
-            onDetectionChange={setLiveDetections}
-            onUseVisionAssist={handleUseVisionAssist}
-            onPreviewCellClick={handlePreviewCellClick}
-            onPreviewColorPick={handlePreviewColorPick}
-            onPreviewReset={
-              hasManualStickerOverrides ? handlePreviewReset : undefined
-            }
-            previewColors={editedPreviewColors}
-            previewSelectedIndex={selectedStickerIndex}
-            showVisionAssist={showVisionAssist}
-            visionAssistPending={visionAssistPending}
-            visionAssistMessage={
-              visionAssistError
-                ? visionAssistError
-                : visionAssist
-                  ? `AI assist used ${visionAssist.model}. ${visionAssist.notes}`
-                  : null
-            }
-          />
+          <div className="scan-page__cameraWrapper">
+            <CameraScanner
+              ref={scannerRef}
+              activeFace={currentFace}
+              onDetectionChange={setLiveDetections}
+              onUseVisionAssist={handleUseVisionAssist}
+              onPreviewCellClick={handlePreviewCellClick}
+              onPreviewColorPick={handlePreviewColorPick}
+              onPreviewReset={
+                hasManualStickerOverrides ? handlePreviewReset : undefined
+              }
+              previewColors={editedPreviewColors}
+              previewSelectedIndex={selectedStickerIndex}
+              showVisionAssist={showVisionAssist}
+              visionAssistPending={visionAssistPending}
+              visionAssistMessage={
+                visionAssistError
+                  ? visionAssistError
+                  : visionAssist
+                    ? `AI assist used ${visionAssist.model}. ${visionAssist.notes}`
+                    : null
+              }
+            />
+
+            <ScanAssistantOverlay
+              type={
+                showSuccessOverlay ? "success" : 
+                (!localHasExpectedCenter && localDetectedColors) ? "rotate" : 
+                (autoCaptureProgress > 0) ? "hold" : "none"
+              }
+              message={
+                showSuccessOverlay ? t.captureSuccess(currentFace, null).split('.')[0] :
+                (!localHasExpectedCenter && localDetectedColors) ? t.wrongFaceWarning(CENTER_COLOR_TO_FACE[localDetectedColors[4]]!, currentFace) :
+                (autoCaptureProgress > 0) ? t.holdSteady : ""
+              }
+              expectedColor={expectedCenterColor}
+            />
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <ProgressBar

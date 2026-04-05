@@ -113,6 +113,13 @@
   justify-content: center;
 }
 
+.scan-page__cameraWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
 .scan-page__captureAssist {
   display: flex;
   flex-direction: column;
@@ -301,11 +308,9 @@
 }
 
 .scan-stage__cell--unknown {
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.02),
-    rgba(255, 255, 255, 0.08)
-  );
+  background-image: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.02),
+      rgba(255, 255, 255, 0.08));
 }
 
 .scan-stage__footer {

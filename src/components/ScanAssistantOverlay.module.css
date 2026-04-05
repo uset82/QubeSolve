@@ -1,0 +1,110 @@
+.overlay {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 100;
+  animation: fadeIn 0.3s ease-out;
+  padding: 24px;
+}
+
+.overlayWarning {
+  background: rgba(255, 68, 68, 0.15);
+  border: 2px solid rgba(255, 68, 68, 0.4);
+}
+
+.overlaySuccess {
+  background: rgba(68, 204, 68, 0.15);
+  border: 2px solid rgba(68, 204, 68, 0.4);
+  animation: successPop 0.5s var(--transition-spring);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.message {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  line-height: 1.2;
+}
+
+.iconWrapper {
+  font-size: 3rem;
+  animation: rotateIcon 2s linear infinite;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.colorContext {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.pulseContainer {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.pulseInner {
+  width: 24px;
+  height: 24px;
+  background: var(--accent-secondary);
+  border-radius: 50%;
+  animation: pulseScale 1.2s infinite ease-in-out;
+}
+
+.checkIcon {
+  font-size: 3.5rem;
+  animation: checkPop 0.6s var(--transition-spring);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
+}
+
+@keyframes rotateIcon {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes successPop {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.4); }
+  50% { transform: scale(1.8); opacity: 0; box-shadow: 0 0 0 20px rgba(0, 212, 170, 0); }
+}
+
+@keyframes checkPop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
