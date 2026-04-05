@@ -20,10 +20,17 @@ export interface ValidationError {
   face?: Face;
 }
 
+export interface SuspectFacelet {
+  face: Face;
+  faceletIndex: number;
+  index: number;
+}
+
 /** Validation result */
 export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
+  suspectFacelets: SuspectFacelet[];
 }
 
 type FaceLetter = 'U' | 'R' | 'F' | 'D' | 'L' | 'B';
@@ -88,6 +95,42 @@ const EDGE_COLORS: FaceLetter[][] = [
   ['B', 'L'],
   ['B', 'R'],
 ];
+
+const FACE_STRING_ORDER: Face[] = ['U', 'R', 'F', 'D', 'L', 'B'];
+
+function faceletStringIndexToFacelet(faceletIndex: number): SuspectFacelet {
+  const face = FACE_STRING_ORDER[Math.floor(faceletIndex / FACELETS_PER_FACE)];
+  const index = faceletIndex % FACELETS_PER_FACE;
+
+  return {
+    face,
+    faceletIndex,
+    index,
+  };
+}
+
+function collectSuspectFacelets(
+  invalidCornerPositions: number[],
+  invalidEdgePositions: number[]
+): SuspectFacelet[] {
+  const faceletIndices = new Set<number>();
+
+  for (const position of invalidCornerPositions) {
+    for (const faceletIndex of CORNER_FACELETS[position] ?? []) {
+      faceletIndices.add(faceletIndex);
+    }
+  }
+
+  for (const position of invalidEdgePositions) {
+    for (const faceletIndex of EDGE_FACELETS[position] ?? []) {
+      faceletIndices.add(faceletIndex);
+    }
+  }
+
+  return [...faceletIndices]
+    .sort((left, right) => left - right)
+    .map(faceletStringIndexToFacelet);
+}
 
 function permutationParity(values: number[]): number {
   let inversions = 0;
@@ -224,6 +267,7 @@ export function validateCubeState(state: CubeState): ValidationResult {
     return {
       valid: false,
       errors,
+      suspectFacelets: [],
     };
   }
 
@@ -236,6 +280,10 @@ export function validateCubeState(state: CubeState): ValidationResult {
     invalidCornerPositions,
     invalidEdgePositions,
   } = decodeCubePieces(facelets);
+  const suspectFacelets = collectSuspectFacelets(
+    invalidCornerPositions,
+    invalidEdgePositions
+  );
 
   if (invalidCornerPositions.length > 0) {
     errors.push({
@@ -292,6 +340,7 @@ export function validateCubeState(state: CubeState): ValidationResult {
   return {
     valid: errors.length === 0,
     errors,
+    suspectFacelets,
   };
 }
 

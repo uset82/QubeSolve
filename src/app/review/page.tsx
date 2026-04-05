@@ -19,6 +19,7 @@ import {
   normalizeSequentialScanFaceColors,
   type CubeState,
 } from "@/lib/cubeState";
+import { attemptRepairCubeState } from "@/lib/cubeRepair";
 import { clearScanSession, loadScanSession, saveScanSession } from "@/lib/scanSession";
 import { clearSolveSession, saveSolveSession } from "@/lib/solveSession";
 import { validateCubeState } from "@/lib/validation";
@@ -31,6 +32,7 @@ type SelectedFacelet = {
 
 type InitialReviewState = {
   cubeState: CubeState | null;
+  repairedSuspectFacelets: number;
   repairedLegacyOrientation: boolean;
 };
 
@@ -42,6 +44,7 @@ function createInitialCubeState(): InitialReviewState {
   if (!hasAllFaces) {
     return {
       cubeState: null,
+      repairedSuspectFacelets: 0,
       repairedLegacyOrientation: false,
     };
   }
@@ -55,26 +58,47 @@ function createInitialCubeState(): InitialReviewState {
   if (validateCubeState(rawState).valid) {
     return {
       cubeState: rawState,
+      repairedSuspectFacelets: 0,
       repairedLegacyOrientation: false,
     };
   }
 
-  const repairedState = createCubeStateFromScans(
+  const orientationRepairedState = createCubeStateFromScans(
     rawScans.map((scan) => ({
       face: scan.face,
       colors: normalizeSequentialScanFaceColors(scan.face, scan.colors),
     }))
   );
 
-  if (validateCubeState(repairedState).valid) {
+  if (validateCubeState(orientationRepairedState).valid) {
     return {
-      cubeState: repairedState,
+      cubeState: orientationRepairedState,
+      repairedSuspectFacelets: 0,
       repairedLegacyOrientation: true,
+    };
+  }
+
+  const orientationRepair = attemptRepairCubeState(orientationRepairedState);
+  if (orientationRepair) {
+    return {
+      cubeState: orientationRepair.cubeState,
+      repairedSuspectFacelets: orientationRepair.changedFacelets.length,
+      repairedLegacyOrientation: true,
+    };
+  }
+
+  const rawRepair = attemptRepairCubeState(rawState);
+  if (rawRepair) {
+    return {
+      cubeState: rawRepair.cubeState,
+      repairedSuspectFacelets: rawRepair.changedFacelets.length,
+      repairedLegacyOrientation: false,
     };
   }
 
   return {
     cubeState: rawState,
+    repairedSuspectFacelets: 0,
     repairedLegacyOrientation: false,
   };
 }
@@ -112,14 +136,18 @@ export default function ReviewPage() {
   const [selectedFacelet, setSelectedFacelet] = useState<SelectedFacelet | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const repairedLegacyOrientation = initialReviewState.repairedLegacyOrientation;
+  const repairedSuspectFacelets = initialReviewState.repairedSuspectFacelets;
 
   useEffect(() => {
-    if (!repairedLegacyOrientation || !initialReviewState.cubeState) {
+    if (
+      (!repairedLegacyOrientation && repairedSuspectFacelets === 0) ||
+      !initialReviewState.cubeState
+    ) {
       return;
     }
 
     saveScanSession(cubeStateToScannedFaces(initialReviewState.cubeState));
-  }, [initialReviewState, repairedLegacyOrientation]);
+  }, [initialReviewState, repairedLegacyOrientation, repairedSuspectFacelets]);
 
   const validation = useMemo(() => {
     if (!cubeState) {
@@ -303,6 +331,12 @@ export default function ReviewPage() {
         {repairedLegacyOrientation && (
           <div className="review-page__repairNotice">
             Adjusted the saved top and bottom scans to match the camera rotation flow.
+          </div>
+        )}
+
+        {repairedSuspectFacelets > 0 && (
+          <div className="review-page__repairNotice">
+            Repaired {repairedSuspectFacelets} suspect sticker{repairedSuspectFacelets === 1 ? "" : "s"} to recover a legal cube state.
           </div>
         )}
 
