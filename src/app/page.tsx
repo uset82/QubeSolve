@@ -114,49 +114,51 @@ export default function HomePage() {
           <span className="home__spark home__spark--three" aria-hidden="true" />
         </div>
 
-        <p className="home__subtitle">
-          Scan your Rubik&apos;s cube, fix any misread stickers, and follow
-          animated 3D moves until it clicks into place.
-        </p>
+        <div className="home__bottomPanel">
+          <p className="home__subtitle">
+            Scan your Rubik&apos;s cube, fix any misread stickers, and follow
+            animated 3D moves until it clicks into place.
+          </p>
 
-        <div className="home__ctaStack">
-          <Button
-            href="/scan?fresh=1"
-            variant="primary"
-            className="home__cta home__cta--scan"
-            fullWidth
-            id="btn-scan"
-            leadingIcon={
-              <span className="home__ctaIcon" aria-hidden="true">
-                <CameraGlyph />
-              </span>
-            }
-          >
-            Scan My Cube
-          </Button>
+          <div className="home__ctaStack">
+            <Button
+              href="/scan?fresh=1"
+              variant="primary"
+              className="home__cta home__cta--scan"
+              fullWidth
+              id="btn-scan"
+              leadingIcon={
+                <span className="home__ctaIcon" aria-hidden="true">
+                  <CameraGlyph />
+                </span>
+              }
+            >
+              Scan My Cube
+            </Button>
 
-          <Button
-            href="/manual?fresh=1"
-            variant="secondary"
-            className="home__cta home__cta--manual"
-            fullWidth
-            id="btn-manual"
-            leadingIcon={
-              <span className="home__ctaIcon home__ctaIcon--manual" aria-hidden="true">
-                <PencilGlyph />
-              </span>
-            }
-          >
-            Enter colors manually
-          </Button>
-        </div>
+            <Button
+              href="/manual?fresh=1"
+              variant="secondary"
+              className="home__cta home__cta--manual"
+              fullWidth
+              id="btn-manual"
+              leadingIcon={
+                <span className="home__ctaIcon home__ctaIcon--manual" aria-hidden="true">
+                  <PencilGlyph />
+                </span>
+              }
+            >
+              Enter colors manually
+            </Button>
+          </div>
 
-        <div className="home__secondary">
-          <Link href="/settings/calibrate" className="home__link">
-            Need better accuracy?
-            <span className="home__linkHighlight"> Calibrate your colors first.</span>
-          </Link>
-          <span className="home__version">v1.0.0-alpha</span>
+          <div className="home__secondary">
+            <Link href="/settings/calibrate" className="home__link">
+              Need better accuracy?
+              <span className="home__linkHighlight"> Calibrate your colors first.</span>
+            </Link>
+            <span className="home__version">v1.0.0-alpha</span>
+          </div>
         </div>
       </div>
 
