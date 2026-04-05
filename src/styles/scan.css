@@ -1,5 +1,7 @@
 .scan-page {
   min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background:
     radial-gradient(circle at top right, rgba(108, 99, 255, 0.14), transparent 34%),
     radial-gradient(circle at bottom left, rgba(0, 212, 170, 0.12), transparent 30%),
@@ -7,7 +9,10 @@
 }
 
 .scan-page__panel {
-  gap: var(--space-lg);
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
 .scan-page__summary {
@@ -94,6 +99,18 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
+  position: sticky;
+  bottom: calc(var(--safe-area-bottom) + var(--space-sm));
+  z-index: var(--z-sticky);
+  margin-top: auto;
+  padding: var(--space-sm);
+  border-radius: var(--radius-xl);
+  background: rgba(15, 15, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.36);
+  justify-content: center;
 }
 
 .scan-page__captureAssist {
@@ -201,6 +218,10 @@
 
 .scan-stage {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
 }
 
 .scan-stage__frame {
@@ -210,8 +231,11 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.16)),
     #05050d;
-  aspect-ratio: 1 / 1.02;
-  max-height: min(58svh, 560px);
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .scan-stage__video {
@@ -413,19 +437,10 @@
     display: none;
   }
 
-  .scan-page__actions {
-    position: sticky;
-    bottom: calc(var(--safe-area-bottom) + var(--space-sm));
-    z-index: var(--z-sticky);
-    margin-top: var(--space-sm);
-    padding: var(--space-sm);
-    border-radius: var(--radius-xl);
-    background: rgba(15, 15, 26, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.36);
+  .scan-page__captureAssist .route-shell__copy {
+    display: none;
   }
+
 
   .scan-stage__grid {
     width: min(64vw, 252px);
@@ -434,8 +449,7 @@
   }
 
   .scan-stage__frame {
-    aspect-ratio: 1 / 0.92;
-    max-height: min(42svh, 350px);
+    flex-grow: 1;
   }
 
   .scan-stage__footer {

@@ -14,6 +14,7 @@ import {
 import CameraScanner, {
   type CameraScannerHandle,
 } from "@/components/CameraScanner";
+import PedagogicalRotationVisualizer from "@/components/PedagogicalRotationVisualizer";
 import Button from "@/components/ui/Button";
 import PageTransition from "@/components/ui/PageTransition";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -561,68 +562,7 @@ export default function ScanPage() {
             </span>
           </div>
 
-          <p className="scan-page__instruction">{SCAN_INSTRUCTIONS[currentFace]}</p>
-
-          <ProgressBar
-            label="Capture progress"
-            max={SCAN_ORDER.length}
-            value={confirmedFaces.length}
-          />
-
-          <div className="scan-page__captureAssist">
-            <div className="scan-page__captureAssistHeader">
-              <strong>Auto-capture</strong>
-              <span>
-                {localHasExpectedCenter &&
-                localDetectedColors &&
-                liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
-                  ? `${Math.round(autoCaptureProgress * 100)}%`
-                  : "Waiting"}
-              </span>
-            </div>
-            <ProgressBar
-              label="Hold steady to save this face"
-              max={100}
-              value={
-                localHasExpectedCenter &&
-                localDetectedColors &&
-                liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
-                  ? Math.round(autoCaptureProgress * 100)
-                  : 0
-              }
-              showNumbers={false}
-            />
-            <p className="route-shell__copy">
-              {localDetectedColors && !localHasExpectedCenter
-                ? `Center ${localDetectedColors[4]}. Waiting for ${expectedCenterColor}.`
-                : liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
-                  ? "Hold steady to auto-save."
-                  : "Stabilizing read."}
-            </p>
-            {autoCaptureMessage && (
-              <div className="scan-page__autocaptureNotice">{autoCaptureMessage}</div>
-            )}
-          </div>
-
-          <div className="scan-page__progress" aria-label="Scanned faces">
-            {SCAN_ORDER.map((face, index) => {
-              const isDone = Boolean(scannedFaces[face]);
-              const isActive = face === currentFace;
-
-              return (
-                <button
-                  key={face}
-                  type="button"
-                  className={`scan-page__face-chip${
-                    isActive ? " scan-page__face-chip--active" : ""
-                  }${isDone ? " scan-page__face-chip--done" : ""}`}
-                  onClick={() => setManualFaceIndex(index)}
-                >
-                  {face}
-                </button>
-              );
-            })}
-          </div>
+          <PedagogicalRotationVisualizer currentFace={currentFace} />
 
           <CameraScanner
             ref={scannerRef}
@@ -646,6 +586,69 @@ export default function ScanPage() {
                   : null
             }
           />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <ProgressBar
+              label="Capture progress"
+              max={SCAN_ORDER.length}
+              value={confirmedFaces.length}
+            />
+
+            <div className="scan-page__captureAssist">
+              <div className="scan-page__captureAssistHeader">
+                <strong>Auto-capture</strong>
+                <span>
+                  {localHasExpectedCenter &&
+                  localDetectedColors &&
+                  liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
+                    ? `${Math.round(autoCaptureProgress * 100)}%`
+                    : "Waiting"}
+                </span>
+              </div>
+              <ProgressBar
+                label="Hold steady to save this face"
+                max={100}
+                value={
+                  localHasExpectedCenter &&
+                  localDetectedColors &&
+                  liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
+                    ? Math.round(autoCaptureProgress * 100)
+                    : 0
+                }
+                showNumbers={false}
+              />
+              <p className="route-shell__copy">
+                {localDetectedColors && !localHasExpectedCenter
+                  ? `Center ${localDetectedColors[4]}. Waiting for ${expectedCenterColor}.`
+                  : liveAverageConfidence >= AUTO_CAPTURE_MIN_CONFIDENCE
+                    ? "Hold steady to auto-save."
+                    : "Stabilizing read."}
+              </p>
+              {autoCaptureMessage && (
+                <div className="scan-page__autocaptureNotice">{autoCaptureMessage}</div>
+              )}
+            </div>
+
+            <div className="scan-page__progress" aria-label="Scanned faces">
+              {SCAN_ORDER.map((face, index) => {
+                const isDone = Boolean(scannedFaces[face]);
+                const isActive = face === currentFace;
+
+                return (
+                  <button
+                    key={face}
+                    type="button"
+                    className={`scan-page__face-chip${
+                      isActive ? " scan-page__face-chip--active" : ""
+                    }${isDone ? " scan-page__face-chip--done" : ""}`}
+                    onClick={() => setManualFaceIndex(index)}
+                  >
+                    {face}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {statusMessage && <div className={statusClassName}>{statusMessage}</div>}
 
