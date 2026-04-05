@@ -48,6 +48,8 @@ const AUTO_CAPTURE_HOLD_MS = 900;
 const AUTO_CAPTURE_LOCKOUT_MS = 1200;
 const AUTO_CAPTURE_MIN_CONFIDENCE = 0.78;
 const DETECTION_LOCK_HOLD_MS = 280;
+const AUTO_RESET_MIN_CONFIDENCE = 0.42;
+const AUTO_RESET_HOLD_MS = 900;
 const STICKERS_PER_FACE = 9;
 
 function createManualStickerOverrides(): Array<CubeColor | null> {
@@ -131,6 +133,9 @@ export default function ScanPage() {
     candidateKey: null as string | null,
     stableSince: 0,
   });
+  const recoveryRef = useRef({
+    lostSince: 0,
+  });
   const [freshStartRequested] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -148,6 +153,20 @@ export default function ScanPage() {
     effectiveScanSession?.scannedFaces ?? ({} satisfies ScannedFacesMap);
   const currentFaceIndex = manualFaceIndex ?? findNextFaceIndex(scannedFaces);
   const [liveDetections, setLiveDetections] = useState<ColorDetectionResult[]>([]);
+
+  const handleUnlockPreview = useCallback(() => {
+    setLockedPreviewColors(null);
+    setManualStickerOverrides(createManualStickerOverrides());
+    setSelectedStickerIndex(null);
+    setVisionAssist(null);
+    setVisionAssistError(null);
+    setAutoCaptureProgress(0);
+    detectionLockRef.current = {
+      candidateKey: null,
+      stableSince: 0,
+    };
+    recoveryRef.current.lostSince = 0;
+  }, []);
   const [visionAssist, setVisionAssist] = useState<VisionAssistResult | null>(null);
   const [visionAssistError, setVisionAssistError] = useState<string | null>(null);
   const [visionAssistPending, setVisionAssistPending] = useState(false);
@@ -488,6 +507,51 @@ export default function ScanPage() {
     visionAssistPending,
   ]);
 
+  /**
+   * Watchdog: Auto-Unlock (Smart Recovery)
+   * Automatically resumes live scanning if the target is lost or unstable.
+   */
+  useEffect(() => {
+    if (
+      !isPreviewLocked || 
+      hasManualStickerOverrides || 
+      visionAssist || 
+      visionAssistPending
+    ) {
+      recoveryRef.current.lostSince = 0;
+      return;
+    }
+
+    const isTargetLost = 
+      !localDetectedColors || 
+      !localHasExpectedCenter || 
+      liveAverageConfidence < AUTO_RESET_MIN_CONFIDENCE;
+
+    if (!isTargetLost) {
+      recoveryRef.current.lostSince = 0;
+      return;
+    }
+
+    const now = performance.now();
+    if (recoveryRef.current.lostSince === 0) {
+      recoveryRef.current.lostSince = now;
+      return;
+    }
+
+    if (now - recoveryRef.current.lostSince >= AUTO_RESET_HOLD_MS) {
+      handleUnlockPreview();
+    }
+  }, [
+    isPreviewLocked,
+    hasManualStickerOverrides,
+    visionAssist,
+    visionAssistPending,
+    localDetectedColors,
+    localHasExpectedCenter,
+    liveAverageConfidence,
+    handleUnlockPreview
+  ]);
+
   const handleUseVisionAssist = async () => {
     const imageDataUrl = scannerRef.current?.captureFrameDataUrl();
 
@@ -537,18 +601,7 @@ export default function ScanPage() {
     setSelectedStickerIndex(null);
   };
 
-  const handleUnlockPreview = () => {
-    setLockedPreviewColors(null);
-    setManualStickerOverrides(createManualStickerOverrides());
-    setSelectedStickerIndex(null);
-    setVisionAssist(null);
-    setVisionAssistError(null);
-    setAutoCaptureProgress(0);
-    detectionLockRef.current = {
-      candidateKey: null,
-      stableSince: 0,
-    };
-  };
+
 
   const handleStartOver = () => {
     clearScanSession();
