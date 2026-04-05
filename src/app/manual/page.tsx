@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import CubeNet2D, { type CubeNetState } from '@/components/CubeNet2D';
 import {
@@ -11,7 +11,8 @@ import {
   type CubeColor,
   type Face,
 } from '@/lib/constants';
-import { loadScanSession, saveScanSession } from '@/lib/scanSession';
+import { clearScanSession, loadScanSession, saveScanSession } from '@/lib/scanSession';
+import { clearSolveSession } from '@/lib/solveSession';
 import '@/styles/manual.css';
 
 type SelectedFacelet = {
@@ -25,16 +26,16 @@ function createEmptyFace(face: Face): Array<CubeColor | null> {
   );
 }
 
-function createInitialManualState(): CubeNetState {
+function createInitialManualState(startFresh: boolean = false): CubeNetState {
   const savedFaces = loadScanSession()?.scannedFaces ?? {};
 
   return {
-    U: savedFaces.U ? [...savedFaces.U] : createEmptyFace('U'),
-    D: savedFaces.D ? [...savedFaces.D] : createEmptyFace('D'),
-    F: savedFaces.F ? [...savedFaces.F] : createEmptyFace('F'),
-    B: savedFaces.B ? [...savedFaces.B] : createEmptyFace('B'),
-    L: savedFaces.L ? [...savedFaces.L] : createEmptyFace('L'),
-    R: savedFaces.R ? [...savedFaces.R] : createEmptyFace('R'),
+    U: !startFresh && savedFaces.U ? [...savedFaces.U] : createEmptyFace('U'),
+    D: !startFresh && savedFaces.D ? [...savedFaces.D] : createEmptyFace('D'),
+    F: !startFresh && savedFaces.F ? [...savedFaces.F] : createEmptyFace('F'),
+    B: !startFresh && savedFaces.B ? [...savedFaces.B] : createEmptyFace('B'),
+    L: !startFresh && savedFaces.L ? [...savedFaces.L] : createEmptyFace('L'),
+    R: !startFresh && savedFaces.R ? [...savedFaces.R] : createEmptyFace('R'),
   };
 }
 
@@ -46,9 +47,25 @@ function countFilledFacelets(cubeState: CubeNetState): number {
 
 export default function ManualPage() {
   const router = useRouter();
-  const [cubeState, setCubeState] = useState<CubeNetState>(createInitialManualState);
+  const [freshStartRequested] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('fresh') === '1'
+  );
+  const [cubeState, setCubeState] = useState<CubeNetState>(() =>
+    createInitialManualState(freshStartRequested)
+  );
   const [selectedColor, setSelectedColor] = useState<CubeColor>('green');
   const [selectedFacelet, setSelectedFacelet] = useState<SelectedFacelet | null>(null);
+
+  useEffect(() => {
+    if (!freshStartRequested) {
+      return;
+    }
+
+    clearScanSession();
+    clearSolveSession();
+  }, [freshStartRequested]);
 
   const filledCount = useMemo(() => countFilledFacelets(cubeState), [cubeState]);
   const isComplete = filledCount === 54;
@@ -68,7 +85,14 @@ export default function ManualPage() {
   };
 
   const handleReset = () => {
-    setCubeState(createInitialManualState());
+    setCubeState(createInitialManualState(true));
+    setSelectedFacelet(null);
+  };
+
+  const handleStartOver = () => {
+    clearScanSession();
+    clearSolveSession();
+    setCubeState(createInitialManualState(true));
     setSelectedFacelet(null);
   };
 
@@ -137,7 +161,10 @@ export default function ManualPage() {
           <button type="button" className="button button--secondary" onClick={handleReset}>
             Reset manual grid
           </button>
-          <Link href="/scan" className="button button--ghost">
+          <button type="button" className="button button--ghost" onClick={handleStartOver}>
+            Start over
+          </button>
+          <Link href="/scan?fresh=1" className="button button--ghost">
             Use camera instead
           </Link>
         </div>

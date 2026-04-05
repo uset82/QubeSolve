@@ -19,8 +19,8 @@ import {
   normalizeSequentialScanFaceColors,
   type CubeState,
 } from "@/lib/cubeState";
-import { loadScanSession, saveScanSession } from "@/lib/scanSession";
-import { saveSolveSession } from "@/lib/solveSession";
+import { clearScanSession, loadScanSession, saveScanSession } from "@/lib/scanSession";
+import { clearSolveSession, saveSolveSession } from "@/lib/solveSession";
 import { validateCubeState } from "@/lib/validation";
 import "@/styles/review.css";
 
@@ -194,6 +194,12 @@ export default function ReviewPage() {
     }
   };
 
+  const handleStartOver = () => {
+    clearScanSession();
+    clearSolveSession();
+    router.push("/scan?fresh=1");
+  };
+
   return (
     <main className="review-page route-shell">
       <header className="route-shell__header">
@@ -316,6 +322,13 @@ export default function ReviewPage() {
           <Link href="/scan" className="button button--secondary">
             Back to scan
           </Link>
+          <button
+            type="button"
+            className="button button--ghost"
+            onClick={handleStartOver}
+          >
+            Start over
+          </button>
         </div>
       </section>
     </main>

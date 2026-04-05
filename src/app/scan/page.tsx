@@ -30,12 +30,14 @@ import {
 } from "@/lib/constants";
 import { normalizeSequentialScanFaceColors } from "@/lib/cubeState";
 import {
+  clearScanSession,
   getScanSessionSnapshot,
   getServerScanSessionSnapshot,
   type ScannedFacesMap,
   saveScanSession,
   subscribeToScanSession,
 } from "@/lib/scanSession";
+import { clearSolveSession } from "@/lib/solveSession";
 import {
   requestVisionAssist,
   type VisionAssistResult,
@@ -119,6 +121,7 @@ function getCompletedColors(
 export default function ScanPage() {
   const router = useRouter();
   const scannerRef = useRef<CameraScannerHandle>(null);
+  const didApplyFreshStartRef = useRef(false);
   const autoCaptureRef = useRef({
     candidateKey: null as string | null,
     stableSince: 0,
@@ -128,15 +131,22 @@ export default function ScanPage() {
     candidateKey: null as string | null,
     stableSince: 0,
   });
+  const [freshStartRequested] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("fresh") === "1"
+  );
   const [manualFaceIndex, setManualFaceIndex] = useState<number | null>(null);
   const scanSession = useSyncExternalStore(
     subscribeToScanSession,
     getScanSessionSnapshot,
     getServerScanSessionSnapshot
   );
-  const scannedFaces = scanSession?.scannedFaces ?? ({} satisfies ScannedFacesMap);
-  const currentFaceIndex =
-    manualFaceIndex ?? findNextFaceIndex(scannedFaces);
+  const effectiveScanSession =
+    freshStartRequested && !didApplyFreshStartRef.current ? null : scanSession;
+  const scannedFaces =
+    effectiveScanSession?.scannedFaces ?? ({} satisfies ScannedFacesMap);
+  const currentFaceIndex = manualFaceIndex ?? findNextFaceIndex(scannedFaces);
   const [liveDetections, setLiveDetections] = useState<ColorDetectionResult[]>([]);
   const [visionAssist, setVisionAssist] = useState<VisionAssistResult | null>(null);
   const [visionAssistError, setVisionAssistError] = useState<string | null>(null);
@@ -194,7 +204,7 @@ export default function ScanPage() {
     localDetectedColors !== null && localDetectedColors[4] === expectedCenterColor;
   const hasExpectedCenter =
     detectedColors !== null && detectedColors[4] === expectedCenterColor;
-  const canConfirm = detectedColors !== null;
+  const canConfirm = detectedColors !== null && hasExpectedCenter;
   const hasManualStickerOverrides = manualStickerOverrides.some(
     (color) => color !== null
   );
@@ -219,11 +229,13 @@ export default function ScanPage() {
     liveDetections.length > 0 &&
     (!localDetectedColors || liveAverageConfidence < 0.7);
 
-  useEffect(() => {
+  const resetTransientCaptureState = useCallback((message: string | null = null) => {
+    setLiveDetections([]);
     setVisionAssist(null);
     setVisionAssistError(null);
+    setVisionAssistPending(false);
     setAutoCaptureProgress(0);
-    setAutoCaptureMessage(null);
+    setAutoCaptureMessage(message);
     setLockedPreviewColors(null);
     setSelectedStickerIndex(null);
     setManualStickerOverrides(createManualStickerOverrides());
@@ -236,7 +248,21 @@ export default function ScanPage() {
       candidateKey: null,
       stableSince: 0,
     };
-  }, [currentFace]);
+  }, []);
+
+  useEffect(() => {
+    resetTransientCaptureState();
+  }, [currentFace, resetTransientCaptureState]);
+
+  useEffect(() => {
+    if (!freshStartRequested || didApplyFreshStartRef.current) {
+      return;
+    }
+
+    didApplyFreshStartRef.current = true;
+    clearScanSession();
+    clearSolveSession();
+  }, [freshStartRequested]);
 
   const statusMessage = useMemo(() => {
     if (visionAssist) {
@@ -252,7 +278,7 @@ export default function ScanPage() {
     }
 
     if (!hasExpectedCenter) {
-      return `This scan looks like ${FACE_NAMES[detectedFace!]}. Confirm will save it there, or rotate to ${FACE_NAMES[currentFace]} if that is the face you want.`;
+      return `This scan looks like ${FACE_NAMES[detectedFace!]}. Rotate to ${FACE_NAMES[currentFace]} or correct the read before this step can be saved.`;
     }
 
     if (isPreviewLocked && !hasManualStickerOverrides) {
@@ -333,11 +359,11 @@ export default function ScanPage() {
   }, [currentFace, router, scannedFaces]);
 
   const handleConfirmFace = () => {
-    if (!canConfirm || !detectedColors || !detectedFace) {
+    if (!canConfirm || !detectedColors) {
       return;
     }
 
-    commitFace(detectedFace, detectedColors, visionAssist ? "vision" : "manual");
+    commitFace(currentFace, detectedColors, visionAssist ? "vision" : "manual");
   };
 
   useEffect(() => {
@@ -507,6 +533,13 @@ export default function ScanPage() {
     };
   };
 
+  const handleStartOver = () => {
+    clearScanSession();
+    clearSolveSession();
+    setManualFaceIndex(null);
+    resetTransientCaptureState("Started a fresh scan. Capture the green face first.");
+  };
+
   return (
     <PageTransition>
       <main className="scan-page route-shell">
@@ -671,6 +704,9 @@ export default function ScanPage() {
               disabled={!allFacesCaptured}
             >
               Review capture
+            </Button>
+            <Button variant="ghost" onClick={handleStartOver}>
+              Start over
             </Button>
           </div>
         </section>

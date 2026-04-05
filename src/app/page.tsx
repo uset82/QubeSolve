@@ -122,7 +122,7 @@ export default function HomePage() {
 
         <div className="home__ctaStack">
           <Button
-            href="/scan"
+            href="/scan?fresh=1"
             variant="primary"
             className="home__cta home__cta--scan"
             fullWidth
@@ -137,7 +137,7 @@ export default function HomePage() {
           </Button>
 
           <Button
-            href="/manual"
+            href="/manual?fresh=1"
             variant="secondary"
             className="home__cta home__cta--manual"
             fullWidth
