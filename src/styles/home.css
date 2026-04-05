@@ -6,7 +6,8 @@
   position: relative;
   min-height: 100dvh;
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   padding:
     calc(var(--safe-area-top) + 26px)
@@ -129,7 +130,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  height: 100%;
+  flex-grow: 1;
 }
 
 .home__masthead {
@@ -208,11 +209,12 @@
 .home__hero {
   position: relative;
   width: 100%;
-  height: 272px;
-  display: grid;
-  place-items: center;
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
-  margin-block: auto; /* Allow the hero to center itself vertically between top and bottom */
 }
 
 .home__heroAura {
@@ -479,7 +481,7 @@
   }
 
   .home__hero {
-    height: 220px;
+    flex-grow: 1;
   }
 
   .home__title {
@@ -504,7 +506,7 @@
   }
 
   .home__hero {
-    height: 200px;
+    flex-grow: 1;
   }
 
   .home__ctaStack {
@@ -523,7 +525,7 @@
   }
 
   .home__hero {
-    height: 300px;
+    flex-grow: 1;
   }
 }
 
@@ -538,7 +540,7 @@
   }
 
   .home__hero {
-    height: 340px;
+    flex-grow: 1;
   }
 
   .home__title {
