@@ -9,7 +9,12 @@ import type { CubeViewer3DAnimationCommand } from '@/components/CubeViewer3D';
 import CubeNet2D from '@/components/CubeNet2D';
 import MoveArrow from '@/components/MoveArrow';
 import StepGuide from '@/components/StepGuide';
-import { applyMove, cloneCubeState, type CubeState } from '@/lib/cubeState';
+import {
+  applyMove,
+  cloneCubeState,
+  convertCanonicalCubeStateToUi,
+  type CubeState,
+} from '@/lib/cubeState';
 import {
   getInverseNotation,
   parseMove,
@@ -89,6 +94,9 @@ export default function SolvePage() {
   const totalSteps = parsedMoves.length;
   const currentCubeState = stepStates[currentStep] ?? null;
   const displayCubeState = activeCommand?.fromState ?? currentCubeState;
+  const displayNetState = displayCubeState
+    ? convertCanonicalCubeStateToUi(displayCubeState)
+    : null;
   const currentMove = currentStep < totalSteps ? parsedMoves[currentStep] : null;
   const guideMove: MoveData | null = activeCommand?.move ?? currentMove;
   const guideStep = activeCommand?.displayStep ?? currentStep;
@@ -299,7 +307,7 @@ export default function SolvePage() {
               </div>
 
               <div className="solve-page__netCard">
-                {displayCubeState ? <CubeNet2D cubeState={displayCubeState} /> : null}
+                {displayNetState ? <CubeNet2D cubeState={displayNetState} /> : null}
               </div>
             </div>
           </section>

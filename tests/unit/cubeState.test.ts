@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest';
 
 import {
   applyMove,
+  convertCanonicalCubeStateToUi,
+  convertUiCubeStateToCanonical,
   createCubeStateFromScans,
   createSolvedCube,
   cubeStateToString,
@@ -66,5 +68,17 @@ describe('cubeState', () => {
     );
 
     expect(restored).toEqual(scrambled);
+  });
+
+  test('round-trips between UI and canonical cube orientations', () => {
+    const scrambled = ['R', "U'", 'F2', 'L', 'D', 'B2'].reduce(
+      (state, move) => applyMove(state, move),
+      createSolvedCube()
+    );
+
+    const uiState = convertCanonicalCubeStateToUi(scrambled);
+    const canonicalState = convertUiCubeStateToCanonical(uiState);
+
+    expect(canonicalState).toEqual(scrambled);
   });
 });

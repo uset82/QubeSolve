@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation';
 import { startTransition, useMemo, useState } from 'react';
 
 import CubeNet2D from '@/components/CubeNet2D';
-import { applyMove, cloneCubeState, type CubeState } from '@/lib/cubeState';
+import {
+  applyMove,
+  cloneCubeState,
+  convertCanonicalCubeStateToUi,
+  type CubeState,
+} from '@/lib/cubeState';
 import { parseSolution } from '@/lib/moveParser';
 import { clearScanSession } from '@/lib/scanSession';
 import { clearSolveSession, loadSolveSession, type SolveSession } from '@/lib/solveSession';
@@ -57,6 +62,13 @@ export default function DonePage() {
       cloneCubeState(session.cubeState)
     );
   }, [parsedMoves, session]);
+  const displaySolvedCubeState = useMemo<CubeState | null>(() => {
+    if (!solvedCubeState) {
+      return null;
+    }
+
+    return convertCanonicalCubeStateToUi(solvedCubeState);
+  }, [solvedCubeState]);
 
   const handleSolveAnother = () => {
     clearScanSession();
@@ -97,7 +109,7 @@ export default function DonePage() {
         </section>
       )}
 
-      {session && solvedCubeState && (
+      {session && solvedCubeState && displaySolvedCubeState && (
         <>
           <section className="route-shell__panel done-page__hero">
             <span className="done-page__pill">
@@ -134,7 +146,7 @@ export default function DonePage() {
               </p>
             </div>
 
-            <CubeNet2D cubeState={solvedCubeState} />
+            <CubeNet2D cubeState={displaySolvedCubeState} />
 
             {session.solution.raw ? (
               <div className="solve-page__solution">

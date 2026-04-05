@@ -28,7 +28,6 @@ import {
   SCAN_ORDER,
   type Face,
 } from "@/lib/constants";
-import { normalizeSequentialScanFaceColors } from "@/lib/cubeState";
 import {
   clearScanSession,
   getScanSessionSnapshot,
@@ -319,13 +318,9 @@ export default function ScanPage() {
     source: "auto" | "manual" | "vision"
   ) => {
     const isReplacement = Boolean(scannedFaces[targetFace]);
-    const normalizedColors = normalizeSequentialScanFaceColors(
-      currentFace,
-      colors
-    );
     const nextScannedFaces = {
       ...scannedFaces,
-      [targetFace]: normalizedColors,
+      [targetFace]: colors,
     };
 
     saveScanSession(nextScannedFaces);
@@ -356,7 +351,7 @@ export default function ScanPage() {
     }
 
     setManualFaceIndex(nextIndex);
-  }, [currentFace, router, scannedFaces]);
+  }, [router, scannedFaces]);
 
   const handleConfirmFace = () => {
     if (!canConfirm || !detectedColors) {

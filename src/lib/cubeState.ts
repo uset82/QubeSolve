@@ -44,6 +44,15 @@ const SEQUENTIAL_SCAN_FACE_ROTATIONS_CW: Record<Face, number> = {
   D: -1,
 };
 
+const UI_TO_CANONICAL_FACE_ROTATIONS_CW: Record<Face, number> = {
+  U: 1,
+  R: 1,
+  F: 1,
+  D: -1,
+  L: 1,
+  B: 1,
+};
+
 /** Map from CubeColor to Kociemba face letter */
 const COLOR_TO_FACE: Record<CubeColor, string> = {
   white: 'U',
@@ -198,6 +207,28 @@ export function normalizeSequentialScanFaceColors(
   colors: ReadonlyArray<CubeColor>
 ): CubeColor[] {
   return rotateFaceColors(colors, SEQUENTIAL_SCAN_FACE_ROTATIONS_CW[face]) as CubeColor[];
+}
+
+export function convertUiCubeStateToCanonical(state: CubeState): CubeState {
+  return {
+    U: rotateFaceColors(state.U, UI_TO_CANONICAL_FACE_ROTATIONS_CW.U) as FaceColors,
+    D: rotateFaceColors(state.D, UI_TO_CANONICAL_FACE_ROTATIONS_CW.D) as FaceColors,
+    F: rotateFaceColors(state.F, UI_TO_CANONICAL_FACE_ROTATIONS_CW.F) as FaceColors,
+    B: rotateFaceColors(state.B, UI_TO_CANONICAL_FACE_ROTATIONS_CW.B) as FaceColors,
+    L: rotateFaceColors(state.L, UI_TO_CANONICAL_FACE_ROTATIONS_CW.L) as FaceColors,
+    R: rotateFaceColors(state.R, UI_TO_CANONICAL_FACE_ROTATIONS_CW.R) as FaceColors,
+  };
+}
+
+export function convertCanonicalCubeStateToUi(state: CubeState): CubeState {
+  return {
+    U: rotateFaceColors(state.U, -UI_TO_CANONICAL_FACE_ROTATIONS_CW.U) as FaceColors,
+    D: rotateFaceColors(state.D, -UI_TO_CANONICAL_FACE_ROTATIONS_CW.D) as FaceColors,
+    F: rotateFaceColors(state.F, -UI_TO_CANONICAL_FACE_ROTATIONS_CW.F) as FaceColors,
+    B: rotateFaceColors(state.B, -UI_TO_CANONICAL_FACE_ROTATIONS_CW.B) as FaceColors,
+    L: rotateFaceColors(state.L, -UI_TO_CANONICAL_FACE_ROTATIONS_CW.L) as FaceColors,
+    R: rotateFaceColors(state.R, -UI_TO_CANONICAL_FACE_ROTATIONS_CW.R) as FaceColors,
+  };
 }
 
 /**
